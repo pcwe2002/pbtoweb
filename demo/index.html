@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>pbtoweb demo</title>
+  
+  <link rel="stylesheet" href="./common/satreport.css">
+  <link rel="stylesheet" href="./common/sdk.css">
+
+  <script src="./common/axios.min.js"></script>
+  <script src="./common/satreport.js"></script>
+  <script src="./common/sdk.js"></script>
+  <script src="./satrda.config.js"></script>
+  <script src="./common/amisutils.js"></script>
+
+</head>
+<body onload="load()" style="background-color: white">
+  <div id="root"></div>
+
+  <script type="module">
+      import Page from './page/vd.js';
+      const root = document.getElementById('root');
+      new Page(root);
+  </script>
+
+  <script>
+    function load() {
+      
+    }
+  </script>
+
+</body>
+</html>
