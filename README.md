@@ -21,3 +21,8 @@ node pbtoweb convert pbcode w_test_amis d:/out.json --demo
 2. 打开d:/out.json并复制文本
 3. 进入amis网站 https://aisuda.bce.baidu.com/amis/zh-CN/components/page, 找一个示例点击编码代码
 4. 粘贴就可以
+
+单独网页中查看
+1. 下载源码的文件夹demo
+2. 放到文件服务器中，如ngnix等，或者直接放到下载的satrda的 server/public 目录, 运行satserver.exe
+3. 浏览器输入 http://127.0.0.1:5555/demo
