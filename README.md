@@ -20,13 +20,84 @@ Convert Powerbuilder UI to web Automatically.
   
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/zh-cn/download 下载安装
-2. 导出pb代码，包括窗口和继承的对象等到一个目录，如示例的pbocde, 如果pb10以下的代码导出后需要用nodepad++ 找到编码转为utf8编码
+2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）, 如果pb10以下的代码导出后需要用nodepad++ 打开文件转换编码为utf8编码
 3. 进入命令行窗口cmd, 进入当前目录输入
 ```shell
 node pbtoweb convert pbcode w_test_amis d:/form.js --js
 ```
 窗口将转化为web窗口form.js
 其中pbcode为pb导出的源码目录， w_test_amis为要导出窗口的名称，  d:/form.js为导出的代码目录  --js表示导出为js窗口
+
+导出后的form.js类似这样
+```js
+export default class PBPage extends PB.AmisPage {
+  constructor(root, options, dialog) {
+    super(root, options, dialog);
+    const page = this;
+    let amisJSON = {...}
+    this._init(amisJSON);
+  }
+
+  onLoad() {
+  }
+
+  onResize(sizetype, newwidth, newheight) {
+    console.log('onResize', newwidth, newheight);
+  }
+
+  onClose() {
+    console.log('onClose');
+  }
+  
+  cb_1_clicked(e, props) {
+      // code
+  } 
+
+}
+```
+代码事件对应关系
+
+|JS事件|PB事件|说明|
+| --- | --- | --- |
+onLoad|load|窗口打开
+onResize|resize|窗口改变大小
+onClose|close|窗口关闭
+cb_1_clicked|click!|名称为cb_1控件的click|
+
+可以在事件中添加自己的处理代码，控件操作和pb中基本一致
+```js
+  ...
+  onResize(sizetype, newwidth, newheight) {
+    cb_1.x = 10;
+    cb_1.y = 100;
+    cb_1.resize(100, 30);
+  }
+
+  async cb_3_clicked(e, props) {
+    let ll_rtn = await PB.messageBox("消息", "您好", "", "YesNo!");
+    if (ll_rtn == 1)  {
+      this.tab_1.tabpage_2.cbx_1.checked = true;
+      this.tab_1.tabpage_2.cbx_2.checked = false;
+    } else {
+      this.tab_1.tabpage_2.cbx_2.checked = true;
+      this.tab_1.tabpage_2.cbx_1.checked = false;
+    }
+    console.log(ll_rtn);
+  }
+
+
+  cb_2_clicked(e, props) {
+    // code
+    this.tab_1.tabpage_2.sle_1.text = "amis演示";
+    this.tab_1.tabpage_2.cbx_2.checked = true;
+  }
+
+
+  cb_1_clicked(e, props) {
+    // code
+    this.tab_1.tabpage_1.dw_1.retrieve()
+  }
+```
 
 ## 在satweb中显示效果
 1. 将生成的form.js放到 server\plugins\web\dist\data\page 目录下面,并运行satserver.exe
