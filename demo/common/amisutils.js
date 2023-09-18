@@ -118,8 +118,6 @@ if (!window.getQueryString) {
     // }
 
     get text() {
-      // 因为设置text是异步的，所以在设置数据同一个方法中取数据会得到原来的数据
-      // 建议在 sle_1.text = '123'; 的同一个方法中取数据时不要通过 sle_1.text
       const data = this.page.getProps().data;
       return data[this._name];
     }

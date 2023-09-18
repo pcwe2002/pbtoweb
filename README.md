@@ -62,7 +62,7 @@ export default class PBPage extends PB.AmisPage {
 onLoad|load|窗口打开
 onResize|resize|窗口改变大小
 onClose|close|窗口关闭
-cb_1_clicked|click!|名称为cb_1控件的click|
+cb_1_clicked|click!|名称为cb_1控件的click事件，根据按钮的click事件自动生成|
 
 可以在事件中添加自己的处理代码，控件操作和pb中基本一致
 ```js
