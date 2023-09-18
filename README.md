@@ -68,9 +68,9 @@ cb_1_clicked|click!|名称为cb_1控件的click|
 ```js
   ...
   onResize(sizetype, newwidth, newheight) {
-    cb_1.x = 10;
-    cb_1.y = 100;
-    cb_1.resize(100, 30);
+    this.cb_1.x = 10;
+    this.cb_1.y = 100;
+    this.cb_1.resize(100, 30);
   }
 
   async cb_3_clicked(e, props) {
