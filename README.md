@@ -163,6 +163,52 @@ cb_1_clicked|click!|名称为cb_1控件的click事件，根据按钮的click事�
     this.tab_1.tabpage_1.dw_1.retrieve()
   }
 ```
+
+## 对象补充
+我实现了常用的pb标准对象和函数，标准对象和函数可以在pbvm.js中进行查看, 代码如下：
+```js
+...
+let PB = {
+    create(cls, options, parent2) {
+      const a = new cls(options, parent2);
+      return a;
+    },
+    destroy(obj) {
+    },
+    trim(str) {
+      return str.trim();
+    },
+    lefttrim(str) {
+      return str.trimStart();
+    },
+    righttrim(str) {
+      return str.trimEnd();
+    },
+    ...
+    //可以补充自己的函数在这里 
+}
+...
+// checkbox控件,可以参考补充控件
+class checkbox extends windowobject {
+  _className = "checkbox";
+  toUI(options) {
+    const attr = this._pbprops;
+    let actl = super.toUI(options);
+    delete actl.tpl;
+    actl.type = "checkbox";
+    actl.option = attr.text;
+    return actl;
+  }
+  get checked() {
+    return this.text;
+  }
+  set checked(value) {
+    this.text = !!value;
+  }
+}
+root.checkbox = checkbox;
+
+```
 如果有源码中没有的对象，或者一些第三方控件，可以在other.js中添加实现，添加后可以正常运行,如
 ```js
 (function(root) {
@@ -194,6 +240,8 @@ class uo_json extends nonvisualobject {
 root.uo_webbrowser = uo_webbrowser;
 })(typeof window !== "undefined" ? window : null);
 ```
+如果一些pb运行函数没有实现，请修改`src/pbvm.js`进行函数添加或者pb标准对象的实现，并放到`demo/common`中可以看到效果。
+如果补充了`pbvm.js`标准库，请联系我(9091178@qq.com)更新，方便大家使用。感谢贡献力量推动pbtoweb前进。
 
 ## 单独网页中查看
 1. 下载源码的文件夹demo
