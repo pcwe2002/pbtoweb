@@ -14,57 +14,122 @@ Convert Powerbuilder UI to web Automatically.
 * [x] SinglelineEdit
 * [x] GroupBox
 * [x] UserObject
-* [ ] Progress
-* [ ] Picture
+* [x] Progress
+* [x] Picture
 * [ ] TreeView
   
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/zh-cn/download 下载安装
 2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）, 如果pb10以下的代码导出后需要用nodepad++ 打开文件转换编码为utf8编码
-3. 进入命令行窗口cmd, 进入当前目录输入
+3. 进入命令行窗口cmd, 进入当前目录
+4. 如果要转化单独的窗口
 ```shell
-node pbtoweb convert pbcode w_test_amis d:/form.js --js
+node pbtoweb convert pbcode w_test_amis demo/page/w_test_amis.js --js
 ```
-窗口将转化为web窗口form.js
-其中pbcode为pb导出的源码目录， w_test_amis为要导出窗口的名称，  d:/form.js为导出的代码目录  --js表示导出为js窗口
+如需转换所有对象
+```shell
+node pbtoweb convert pbcode all demo/page/index.js --js
+```
+
+窗口将转化为web窗口form.js, 参数说明如下：
+|参数|说明|
+|----|----|
+convert|执行的命令|
+pbcode|pb导出的源码目录,需要包括继承的对象|
+w_test_amis|源码的窗口名或者all,为all表示导出所有对象|
+d:/w_test_amis.js|导出的文件名或者文件夹（参数为all时只找文件夹)|
+--js|导出为js窗口文件|
 
 导出后的form.js类似这样
 ```js
-export default class PBPage extends PB.AmisPage {
-  constructor(root, options, dialog) {
-    super(root, options, dialog);
-    const page = this;
-    let amisJSON = {...}
-    this._init(amisJSON);
+class w_test_web extends pbwindow {
+    
+  constructor(options) {
+    let props = {
+      "name": "w_test_web",
+      "width": 694,
+      "height": 330,
+      "titlebar": "true",
+      "title": "Untitled",
+      "controlmenu": "true",
+      "minbox": "true",
+      "maxbox": "true",
+      "resizable": "true",
+      "backcolor": "#F0F0F0",
+      "icon": "AppIcon!",
+      "center": "true"
+    };
+    Object.assign(props, options);
+    super(props);
+  }
+    // Events
+  create() {
+    this.cb_2 = create(commandbutton, {
+      "name": "cb_2",
+      "x": 198,
+      "y": 58,
+      "width": 100,
+      "height": 32,
+      "taborder": "20",
+      "textsize": 12,
+      "weight": "400",
+      "facename": "Arial",
+      "text": "按钮二",
+      "events": {
+        "clicked": "cb_2_clicked"
+      }
+    }, this);
+    this.cb_1 = create(commandbutton, {
+      "name": "cb_1",
+      "x": 87,
+      "y": 60,
+      "width": 100,
+      "height": 32,
+      "taborder": "10",
+      "textsize": 12,
+      "weight": "400",
+      "facename": "Arial",
+      "text": "按钮一",
+      "events": {
+        "clicked": "cb_1_clicked"
+      }
+    }, this);
+    this.control = [this.cb_2, this.cb_1];
   }
 
-  onLoad() {
+  destroy() {
+    destroy(this.cb_2);
+    this.cb_2 = null;
+    destroy(this.cb_1);
+    this.cb_1 = null;
+  }
+
+  cb_2_clicked() {//
+  }
+
+  cb_1_clicked() {//messagebox("", cb_1.text)
+  }
+
+  onOpen() {
   }
 
   onResize(sizetype, newwidth, newheight) {
-    console.log('onResize', newwidth, newheight);
   }
 
   onClose() {
-    console.log('onClose');
   }
-  
-  cb_1_clicked(e, props) {
-      // code
-  } 
-
 }
 ```
 代码事件对应关系
 
 |JS事件|PB事件|说明|
 | --- | --- | --- |
-onLoad|load|窗口打开
-onResize|resize|窗口改变大小
-onClose|close|窗口关闭
+onOpen|open|窗口打开,如没有可自行添加
+onResize|resize|窗口改变大小,如没有可自行添加
+onClose|close|窗口关闭,如没有可自行添加
 cb_1_clicked|click!|名称为cb_1控件的click事件，根据按钮的click事件自动生成|
 
-可以在事件中添加自己的处理代码，控件操作和pb中基本一致
+程序会自动转化代码，也可以在事件中添加自己的处理代码，控件操作和pb中基本一致
 ```js
   ...
   onResize(sizetype, newwidth, newheight) {
@@ -98,6 +163,43 @@ cb_1_clicked|click!|名称为cb_1控件的click事件，根据按钮的click事�
     this.tab_1.tabpage_1.dw_1.retrieve()
   }
 ```
+如果有源码中没有的对象，或者一些第三方控件，可以在other.js中添加实现，添加后可以正常运行,如
+```js
+(function(root) {
+    root = root || global
+
+//实现 uo_webbrowser,代码中使用了uo_webbrowser可以正常运行
+class uo_webbrowser extends multilineedit {
+    _className = 'uo_webbrowser'
+}
+
+root.uo_webbrowser = uo_webbrowser;
+})(typeof window !== "undefined" ? window : null);
+```
+如果用到了第三方控件，如解析json的uo_json，因为用到了第三方dll没办法直接转代码，
+因为js原生支持json,我们可以在other.js中添加一个uo_json对象，如下:
+```js
+(function(root) {
+    root = root || global
+...
+//实现 uo_json, 只是举例未完全实现，建议是通过js代码改写,如果使用太多，才构造对象.
+class uo_json extends nonvisualobject {
+    _className = 'uo_json'
+    _json = {};
+    set(key, value) {
+      _json[key] = value;
+    }
+}
+
+root.uo_webbrowser = uo_webbrowser;
+})(typeof window !== "undefined" ? window : null);
+```
+
+## 单独网页中查看
+1. 下载源码的文件夹demo
+2. 放到文件服务器中，如ngnix等，或者直接放到下载的satrda的 server/public 目录, 运行satserver.exe
+3. 浏览器输入 http://127.0.0.1:5555/demo
+其中demo/page文件夹中是导出的所有文件 
 
 ## 在satweb中显示效果
 1. 将生成的form.js放到 server\plugins\web\dist\data\page 目录下面,并运行satserver.exe
@@ -112,14 +214,10 @@ cb_1_clicked|click!|名称为cb_1控件的click事件，根据按钮的click事�
 node pbtoweb convert pbcode w_test_amis d:/out.json --demo
 ```
 
-1. 打开d:/out.json并复制文本
-2. 进入 [amis网站](https://aisuda.bce.baidu.com/amis/zh-CN/components/page), 找一个示例点击编码代码
-3. 粘贴就可以
+2. 打开d:/out.json并复制文本
+3. 进入 [amis网站](https://aisuda.bce.baidu.com/amis/zh-CN/components/page), 找一个示例点击编码代码
+4. 粘贴就可以
 
-## 单独网页中查看
-1. 下载源码的文件夹demo
-2. 放到文件服务器中，如ngnix等，或者直接放到下载的satrda的 server/public 目录, 运行satserver.exe
-3. 浏览器输入 http://127.0.0.1:5555/demo
 
 
 更多信息，QQ群：836173975

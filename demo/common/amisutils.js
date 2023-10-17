@@ -332,6 +332,8 @@ if (!window.getQueryString) {
     },
   };
 
+	window.sqlca = db;
+	
   let index = 0;
   // window.enableAMISDebug = true;
   let amisLib = amisRequire('amis');

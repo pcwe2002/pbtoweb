@@ -13,15 +13,20 @@
   <script src="./common/sdk.js"></script>
   <script src="./satrda.config.js"></script>
   <script src="./common/amisutils.js"></script>
+  <script src="./page/pbvm.js"></script>
+  <script src="./page/other.js"></script>
 
 </head>
 <body onload="load()" style="background-color: white">
   <div id="root"></div>
 
   <script type="module">
-      import Page from './page/vd.js';
+      import './page/index.js';
+	  
       const root = document.getElementById('root');
-      new Page(root);
+	  //new PBPage(root);
+      let w = new w_test_amis();
+	  w.show(root);
   </script>
 
   <script>
