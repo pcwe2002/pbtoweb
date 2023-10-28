@@ -20,6 +20,24 @@ function addTextProperty(obj, page) {
     }
   });
 }
+function addEnabledProperty(obj, page) {
+  Object.defineProperties(obj, {
+    "enabled": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        const props = page.getProps();
+        props.store.changeValue(`disabled.${obj.name}`, !value);
+      },
+      get: () => {
+        const data = page.getProps().data;
+        const key = obj.name;
+        const disabled = data.disabled[key];
+        return !disabled;
+      }
+    }
+  });
+}
 function addPositionProperty(obj, dom) {
   function getDom() {
     if (typeof dom === "function") {
@@ -67,6 +85,18 @@ function addPositionProperty(obj, dom) {
       },
       get: () => {
         return getDom().offsetHeight;
+      }
+    },
+    "visible": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        const v = value ? "visible" : "hidden";
+        getDom().style["visibility"] = v;
+      },
+      get: () => {
+        const v = getDom().style["visibility"];
+        return v !== "hidden";
       }
     }
   });
@@ -247,7 +277,38 @@ function getTypeofSign(name) {
     isvalid(value) {
       return !(value === null || value === void 0);
     },
-    triggerevent() {
+    async triggerevent(obj, func, ...args) {
+      let key = null;
+      if (obj._pbprops && obj._pbprops.events) {
+        key = obj._pbprops.events[func];
+      }
+      let f;
+      let win = obj;
+      while (win && win.parent) {
+        win = win.parent;
+      }
+      if (win && win[key]) {
+        f = win[key];
+        if (f) {
+          await f.call(win, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
+        }
+      } else {
+        f = obj[func];
+        if (f) {
+          await f.call(obj, ...args);
+        }
+      }
+    },
+    // 实现事件super的功能，先找窗口和继承窗口中是否有这个事件，如果有就执行，如果没有，执行对象的事件
+    async superevent({ ctl, pro, name, func }, ...arg) {
+      const p = pro.__proto__;
+      if (p[name]) {
+        await p[name].call(this, { ctl, pro: p, name, func }, ...arg);
+      } else if (ctl[func]) {
+        await ctl[func].call(ctl, ...arg);
+      }
+    },
+    setnull() {
     }
   };
   function messagebox(title, text, icon, button = "OK!") {
@@ -255,7 +316,17 @@ function getTypeofSign(name) {
     return new Promise((resolve) => {
       if (button === "OK!") {
         amis.alert(text, title);
-        resolve(1);
+        setTimeout(() => {
+          let footer = document.querySelector(".cxd-Modal-footer");
+          let cb = footer.children[0];
+          let f = () => {
+            cb.removeEventListener("click", f);
+            setTimeout(() => {
+              resolve(1);
+            }, 10);
+          };
+          cb.addEventListener("click", f);
+        }, 10);
       } else if (button === "YesNo!") {
         const p = amis.confirm(text, title, { confirmBtnLevel: "primary", confirmText: "\u662F", cancelText: "\u5426" });
         p.then((rtn) => {
@@ -342,15 +413,7 @@ function getTypeofSign(name) {
       return this._className;
     }
     triggerevent(eventName, ...args) {
-      const { events } = this._pbprops;
-      if (events && events[eventName]) {
-        let win = this.parent;
-        while (win && !(win instanceof pbwindow)) {
-          win = win.parent;
-        }
-        const evName = events[eventName];
-        win[evName].apply(this, args);
-      }
+      PB.triggerevent(this, eventName, ...args);
     }
     _join_props(props) {
       Object.assign(this._pbprops, props);
@@ -385,6 +448,9 @@ function getTypeofSign(name) {
       super(options);
       this.parent = parent2;
       const attr = this._pbprops;
+      if (!attr.text) {
+        attr.text = "";
+      }
       this.width = attr.width;
       this.height = attr.height;
       const { events } = options;
@@ -423,14 +489,18 @@ function getTypeofSign(name) {
           height: attr.height,
           position: "absolute",
           whiteSpace: "nowrap"
-        }
+        },
+        disabledOn: "disabled." + attr.name
       };
       this.name = attr.name;
       if (attr.textsize) {
         actl.style.fontSize = attr.textsize + "px";
       }
       if (attr.visible === false) {
-        actl.visible = false;
+        actl.style.visibility = "hidden";
+      }
+      if (attr.enabled === false) {
+        options.page.data.disabled[attr.name] = true;
       }
       actl.tpl = `${this._className}:${attr.name}`;
       if (addprop && options.win) {
@@ -446,6 +516,7 @@ function getTypeofSign(name) {
       }
       if (options.win) {
         addTextProperty(this, options.win);
+        addEnabledProperty(this, options.win);
       }
       return actl;
     }
@@ -543,7 +614,7 @@ function getTypeofSign(name) {
           // "--Form-selectOption-height":"",
           // "--select-base-default-fontSize":"",
         },
-        data: { showLoading: false },
+        data: { showLoading: false, disabled: {} },
         css: {},
         body: [{
           "type": "spinner",
@@ -651,9 +722,9 @@ function getTypeofSign(name) {
       actl.label = attr.text;
       if (options.js && attr.events && attr.events["clicked"]) {
         const key = `${attr.name}_clicked`;
-        const inst = options.win;
+        const inst = this;
         actl.onClick = (e, props) => {
-          inst[key](e, props);
+          inst.triggerevent("clicked", e, props);
         };
       }
       return actl;
@@ -786,6 +857,124 @@ function getTypeofSign(name) {
       return actl;
     }
   }
+  function addDWProperties(dwCls) {
+    const p = dwCls.prototype;
+    p.settransobject = function(db) {
+      return this._dw.setTransObject();
+    };
+    p.rowcount = function() {
+      return this._dw.rowCount();
+    };
+    p.setitem = function(row, column, value) {
+      return this._dw.setItem(...arguments);
+    };
+    p.getitem = function(row, column = null) {
+      return this._dw.setItem(...arguments);
+    };
+    p.setitemstatus = function(row, column, dwbuffer, status) {
+      return this._dw.setItemsSatus(...arguments);
+    };
+    p.getitemstatus = function(row, column, dwbuffer) {
+      return this._dw.getItemStatus(...arguments);
+    };
+    p.insertrow = function(row) {
+      return this._dw.insertRow(...arguments);
+    };
+    p.deleterow = function(row) {
+      return this._dw.deleteRow(...arguments);
+    };
+    p.retrieve = async function(...args) {
+      return this._dw.retrieve(...arguments);
+    };
+    p.update = function(accept = true, resetflag = true) {
+      return this._dw.update(...arguments);
+    };
+    p.resetupdate = function() {
+      return this._dw.resetUpdate();
+    };
+    p.reset = function() {
+      return this._dw.reset();
+    };
+    p.setrow = function(row) {
+      return this._dw.setRow(...arguments);
+    };
+    p.scrolltorow = function(row) {
+      return this._dw.scrollToRow(...arguments);
+    };
+    p.getrow = function() {
+      return this._dw.getRow(...arguments);
+    };
+    p.selectrow = function(row, select) {
+      return this._dw.selectRow(...arguments);
+    };
+    p.isselected = function(row) {
+      return this._dw.isSelected(...arguments);
+    };
+    p.getselectedrows = function() {
+      return this._dw.getSelectedRows(...arguments);
+    };
+    p.sharedata = function(dwsecondary) {
+      return this._dw.shareData(...arguments);
+    };
+    p.sharedataoff = function() {
+      return this._dw.shareDataOff(...arguments);
+    };
+    p.rowsmove = function(startrow, endrow, movebuffer, targetdw, beforerow, targetbuffer) {
+      return this._dw.rowsMove(...arguments);
+    };
+    p.rowscopy = function(startrow, endrow, copybuffer, targetdw, beforerow, targetbuffer) {
+      return this._dw.rowsCopy(...arguments);
+    };
+    p.rowsdiscard = function(startrow, endrow, buffer = DWBuffer.Primary) {
+      return this._dw.rowsDiscard(...arguments);
+    };
+    p.setsort = function(format) {
+      return this._dw.setSort(...arguments);
+    };
+    p.sort = function() {
+      return this._dw.sort(...arguments);
+    };
+    p.setfilter = function(format) {
+      return this._dw.setFilter(...arguments);
+    };
+    p.filter = function() {
+      return this._dw.filter(...arguments);
+    };
+    p.filterall = function(text) {
+      return this._dw.filterAll(...arguments);
+    };
+    p.find = function(expression, start, end) {
+      return this._dw.find(...arguments);
+    };
+    p.deletedcount = function() {
+      return this._dw.deletedCount(...arguments);
+    };
+    p.filteredcount = function() {
+      return this._dw.filteredCount(...arguments);
+    };
+    p.modifiedcount = function() {
+      return this._dw.modifiedCount(...arguments);
+    };
+    p.getchanges = function(data) {
+      return this._dw.getChanges(...arguments);
+    };
+    p.setchanges = function(data) {
+      return this._dw.setChanges(...arguments);
+    };
+  }
+  class datastore extends powerobject {
+    _className = "datastore";
+    constructor() {
+      this._dw = new DataStore();
+    }
+    get dataobject() {
+      return this._dw.dataobject;
+    }
+    set dataobject(value) {
+      this._dw.dataobject = value;
+    }
+  }
+  addDWProperties(datastore);
   class datawindow extends windowobject {
     _className = "datawindow";
     toUI(options) {
@@ -832,109 +1021,110 @@ function getTypeofSign(name) {
       this._dataobject = value;
       this._dw.dataobject = value;
     }
-    settransobject(db) {
-      return this._dw.setTransObject();
-    }
-    rowcount() {
-      return this._dw.rowCount();
-    }
-    setitem(row, column, value) {
-      return this._dw.setItem(...arguments);
-    }
-    getitem(row, column = null) {
-      return this._dw.setItem(...arguments);
-    }
-    setitemstatus(row, column, dwbuffer, status) {
-      return this._dw.setItemsSatus(...arguments);
-    }
-    getitemstatus(row, column, dwbuffer) {
-      return this._dw.getItemStatus(...arguments);
-    }
-    insertrow(row) {
-      return this._dw.insertRow(...arguments);
-    }
-    deleterow(row) {
-      return this._dw.deleteRow(...arguments);
-    }
-    retrieve(...args) {
-      return this._dw.retrieve(...arguments);
-    }
-    update(accept = true, resetflag = true) {
-      return this._dw.update(...arguments);
-    }
-    resetupdate() {
-      return this._dw.resetUpdate();
-    }
-    reset() {
-      return this._dw.reset();
-    }
-    setrow(row) {
-      return this._dw.setRow(...arguments);
-    }
-    scrolltorow(row) {
-      return this._dw.scrollToRow(...arguments);
-    }
-    getrow() {
-      return this._dw.getRow(...arguments);
-    }
-    selectrow(row, select) {
-      return this._dw.selectRow(...arguments);
-    }
-    isselected(row) {
-      return this._dw.isSelected(...arguments);
-    }
-    getselectedrows() {
-      return this._dw.getSelectedRows(...arguments);
-    }
-    sharedata(dwsecondary) {
-      return this._dw.shareData(...arguments);
-    }
-    sharedataoff() {
-      return this._dw.shareDataOff(...arguments);
-    }
-    rowsmove(startrow, endrow, movebuffer, targetdw, beforerow, targetbuffer) {
-      return this._dw.rowsMove(...arguments);
-    }
-    rowscopy(startrow, endrow, copybuffer, targetdw, beforerow, targetbuffer) {
-      return this._dw.rowsCopy(...arguments);
-    }
-    rowsdiscard(startrow, endrow, buffer = DWBuffer.Primary) {
-      return this._dw.rowsDiscard(...arguments);
-    }
-    setsort(format) {
-      return this._dw.setSort(...arguments);
-    }
-    sort() {
-      return this._dw.sort(...arguments);
-    }
-    setfilter(format) {
-      return this._dw.setFilter(...arguments);
-    }
-    filter() {
-      return this._dw.filter(...arguments);
-    }
-    filterall(text) {
-      return this._dw.filterAll(...arguments);
-    }
-    find(expression, start, end) {
-      return this._dw.find(...arguments);
-    }
-    deletedcount() {
-      return this._dw.deletedCount(...arguments);
-    }
-    filteredcount() {
-      return this._dw.filteredCount(...arguments);
-    }
-    modifiedcount() {
-      return this._dw.modifiedCount(...arguments);
-    }
-    getchanges(data) {
-      return this._dw.getChanges(...arguments);
-    }
-    setchanges(data) {
-      return this._dw.setChanges(...arguments);
-    }
+    // settransobject(db) {
+    //   return this._dw.setTransObject();
+    // }
+    // rowcount () {
+    //   return this._dw.rowCount();
+    // }
+    // setitem(row,column,value) {
+    //   return this._dw.setItem(...arguments);
+    // }
+    // getitem(row,column = null) {
+    //   return this._dw.setItem(...arguments);
+    // }
+    // setitemstatus ( row, column, dwbuffer, status ) {
+    //   return this._dw.setItemsSatus(...arguments);
+    // }
+    // getitemstatus ( row, column, dwbuffer) {
+    //   return this._dw.getItemStatus(...arguments);
+    // }
+    // insertrow(row) {
+    //   return this._dw.insertRow(...arguments);
+    // }
+    // deleterow ( row ) {
+    //   return this._dw.deleteRow(...arguments);
+    // }
+    // async retrieve(...args) {
+    //   return this._dw.retrieve(...arguments);
+    // }
+    // update(accept = true,resetflag = true) {
+    //   return this._dw.update(...arguments);
+    // }
+    // resetupdate() {
+    //   return this._dw.resetUpdate();
+    // }
+    // reset() {
+    //   return this._dw.reset();
+    // }
+    // setrow(row) {
+    //   return this._dw.setRow(...arguments);
+    // }
+    // scrolltorow(row) {
+    //   return this._dw.scrollToRow(...arguments);
+    // }
+    // getrow() {
+    //   return this._dw.getRow(...arguments);
+    // }
+    // selectrow(row, select) {
+    //   return this._dw.selectRow(...arguments);
+    // }
+    // isselected(row) {
+    //   return this._dw.isSelected(...arguments);
+    // }
+    // getselectedrows() {
+    //   return this._dw.getSelectedRows(...arguments);
+    // }
+    // sharedata(dwsecondary) {
+    //   return this._dw.shareData(...arguments);
+    // }
+    // sharedataoff() {
+    //   return this._dw.shareDataOff(...arguments);
+    // }
+    // rowsmove (  startrow,  endrow, movebuffer, targetdw, beforerow, targetbuffer ) {
+    //   return this._dw.rowsMove(...arguments);
+    // }
+    // rowscopy (  startrow,  endrow, copybuffer, targetdw, beforerow, targetbuffer ) {
+    //   return this._dw.rowsCopy(...arguments);
+    // }
+    // rowsdiscard(startrow,endrow,buffer = DWBuffer.Primary) {
+    //   return this._dw.rowsDiscard(...arguments);
+    // }
+    // setsort(format) {
+    //   return this._dw.setSort(...arguments);
+    // }
+    // sort() {
+    //   return this._dw.sort(...arguments);
+    // }
+    // setfilter(format) {
+    //   return this._dw.setFilter(...arguments);
+    // }
+    // filter() {
+    //   return this._dw.filter(...arguments);
+    // }
+    // filterall(text) {
+    //   return this._dw.filterAll(...arguments);
+    // }
+    // find(expression,start,end) {
+    //   return this._dw.find(...arguments);
+    // }
+    // deletedcount() {
+    //   return this._dw.deletedCount(...arguments);
+    // }
+    // filteredcount() {
+    //   return this._dw.filteredCount(...arguments);
+    // }
+    // modifiedcount() {
+    //   return this._dw.modifiedCount(...arguments);
+    // }
+    // getchanges(data) {
+    //   return this._dw.getChanges(...arguments);
+    // }
+    // setchanges(data) {
+    //   return this._dw.setChanges(...arguments);
+    // }
   }
+  addDWProperties(datawindow);
   root.powerobject = powerobject;
   root.nonvisualobject = nonvisualobject;
   root.userobject = userobject;
@@ -953,4 +1143,5 @@ function getTypeofSign(name) {
   root.picture = picture;
   root.hprogressbar = hprogressbar;
   root.datawindow = datawindow;
+  root.datastore = datastore;
 })(typeof window !== "undefined" ? window : null);

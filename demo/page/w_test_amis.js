@@ -2,9 +2,9 @@
 (function(root) {
     root = root || global
     
-
 class w_test_amis extends pbwindow {
-    
+
+
   constructor(options) {
     let props = {
       "name": "w_test_amis",
@@ -24,7 +24,23 @@ class w_test_amis extends pbwindow {
     super(props);
   }
     // Events
+
   create() {
+    this.cb_7 = create(commandbutton, {
+      "name": "cb_7",
+      "x": 445,
+      "y": 7,
+      "width": 100,
+      "height": 32,
+      "taborder": "30",
+      "textsize": 12,
+      "weight": "400",
+      "facename": "Arial",
+      "text": "visible",
+      "events": {
+        "clicked": "cb_7_clicked"
+      }
+    }, this);
     this.cb_4 = create(commandbutton, {
       "name": "cb_4",
       "x": 334,
@@ -35,7 +51,7 @@ class w_test_amis extends pbwindow {
       "textsize": 12,
       "weight": "400",
       "facename": "Arial",
-      "text": "none",
+      "text": "enabled",
       "events": {
         "clicked": "cb_4_clicked"
       }
@@ -105,10 +121,13 @@ class w_test_amis extends pbwindow {
         "clicked": "cb_1_clicked"
       }
     }, this);
-    this.control = [this.cb_4, this.cb_3, this.tab_1, this.cb_2, this.cb_1];
+    this.control = [this.cb_7, this.cb_4, this.cb_3, this.tab_1, this.cb_2, this.cb_1];
   }
 
+
   destroy() {
+    destroy(this.cb_7);
+    this.cb_7 = null;
     destroy(this.cb_4);
     this.cb_4 = null;
     destroy(this.cb_3);
@@ -121,16 +140,26 @@ class w_test_amis extends pbwindow {
     this.cb_1 = null;
   }
 
+
   onResize(sizetype, newwidth, newheight) {// resize
   }
 
-  cb_4_clicked() {
-    messagebox(``, this.tab_1.tabpage_2.ddlb_1.text);
+
+  cb_7_clicked() {
+    //messagebox("",tab_1.tabpage_2.ddlb_1.text)
+    this.tab_1.tabpage_2.sle_1.visible = !this.tab_1.tabpage_2.sle_1.visible;
   }
 
-  cb_3_clicked() {
+
+  cb_4_clicked() {
+    //messagebox("",tab_1.tabpage_2.ddlb_1.text)
+    this.tab_1.tabpage_2.sle_1.enabled = false;
+  }
+
+
+  async cb_3_clicked() {
     let ll_rtn = 0;
-    ll_rtn = messagebox(`提示`, `选择1?`, `Information!`, `YesNo!`);
+    ll_rtn = await messagebox(`提示`, `选择1?`, `Information!`, `YesNo!`);
     if (ll_rtn === 1) {
       this.tab_1.tabpage_2.cbx_1.checked = true;
       this.tab_1.tabpage_2.cbx_2.checked = false;
@@ -140,7 +169,8 @@ class w_test_amis extends pbwindow {
     }
   }
 
-  tab_1_create() {
+
+  async tab_1_create() {
     this.tabpage_1 = create(userobject, {
       "name": "tabpage_1",
       "x": 4,
@@ -174,18 +204,21 @@ class w_test_amis extends pbwindow {
     this.control = [this.tabpage_1, this.tabpage_2];
   }
 
-  tab_1_destroy() {
+
+  async tab_1_destroy() {
     destroy(this.tabpage_1);
     this.tabpage_1 = null;
     destroy(this.tabpage_2);
     this.tabpage_2 = null;
   }
 
-  tab_1_selectionchanged() {
+
+  async tab_1_selectionchanged() {
     this.tab_1.tabpage_1.dw_1.retrieve();
   }
 
-  tabpage_1_create() {
+
+  async tabpage_1_create() {
     this.cb_6 = create(commandbutton, {
       "name": "cb_6",
       "x": 130,
@@ -230,7 +263,8 @@ class w_test_amis extends pbwindow {
     this.control = [this.cb_6, this.cb_5, this.dw_1];
   }
 
-  tabpage_1_destroy() {
+
+  async tabpage_1_destroy() {
     destroy(this.cb_6);
     this.cb_6 = null;
     destroy(this.cb_5);
@@ -239,16 +273,20 @@ class w_test_amis extends pbwindow {
     this.dw_1 = null;
   }
 
-  cb_6_clicked() {
-    this.tab_1.tabpage_1.dw_1.settransobject(sqlca);
-    this.tab_1.tabpage_1.dw_1.update();
+
+  async cb_6_clicked() {
+    //tab_1.tabpage_1.dw_1.setTransObject(sqlca)
+    //tab_1.tabpage_1.dw_1.update()
+    this.cb_3.triggerevent(`clicked`);
   }
 
-  cb_5_clicked() {
+
+  async cb_5_clicked() {
     this.tab_1.tabpage_1.dw_1.insertrow(0);
   }
 
-  tabpage_2_create() {
+
+  async tabpage_2_create() {
     this.p_1 = create(picture, {
       "name": "p_1",
       "x": 459,
@@ -422,7 +460,8 @@ class w_test_amis extends pbwindow {
     this.control = [this.p_1, this.hpb_1, this.rb_3, this.rb_2, this.rb_1, this.cbx_2, this.cbx_1, this.ddlb_1, this.st_2, this.em_1, this.sle_1, this.st_1, this.gb_1];
   }
 
-  tabpage_2_destroy() {
+
+  async tabpage_2_destroy() {
     destroy(this.p_1);
     this.p_1 = null;
     destroy(this.hpb_1);
@@ -451,12 +490,14 @@ class w_test_amis extends pbwindow {
     this.gb_1 = null;
   }
 
-  cb_2_clicked() {
+
+  async cb_2_clicked() {
     this.tab_1.tabpage_2.sle_1.text = `amis演示`;
     this.tab_1.tabpage_2.cbx_2.checked = true;
   }
 
-  cb_1_clicked() {
+
+  async cb_1_clicked() {
     this.tab_1.tabpage_1.dw_1.retrieve();
   }
 }

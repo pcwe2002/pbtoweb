@@ -22,7 +22,7 @@ Convert Powerbuilder UI to web Automatically.
 * [x] 窗口转换
 * [x] 对象转换
 * [x] 事件转换
-* [ ] 全局函数
+* [x] 全局函数
 * [ ] 嵌入式SQL
    
 ## 使用说明：
@@ -47,6 +47,30 @@ w_test_amis|源码的窗口名或者all,为all表示导出所有对象|
 d:/w_test_amis.js|导出的文件名或者文件夹（参数为all时只找文件夹)|
 --js|导出为js窗口文件|
 
+## 单独网页中查看
+1. 下载源码的文件夹demo
+2. 放到文件服务器中，如ngnix等，或者直接放到下载的satrda的 server/public 目录, 运行satserver.exe
+3. 浏览器输入 http://127.0.0.1:5555/demo
+其中demo/page文件夹中是导出的所有文件 
+
+## 在satweb中显示效果
+1. 将生成的form.js放到 server\plugins\web\dist\data\page 目录下面,并运行satserver.exe
+2. 浏览器输入 http://127.0.0.1:5555/webui ,如果未配置数据库，请参考http://www.satrda.com/doc/satweb/config.html 中的开始使用配置
+3. 在系统管理->菜单管理中随意找一个菜单，点击修改  修改-> 组件路径:amispage, 路由地址为 /data/page/vd.js 并保存。
+4. 刷新浏览器进入菜单可以看到效果。参考demo/vd.js 中的事件可以写实现自己的事件，代码基本和pb一样
+了解更多satweb可以进入 http://www.satrda.com/doc/satweb/config.html
+
+## 在amis网站上查看效果
+1. 命令行运行以下命令,会导出amis的json文件
+```shell
+node pbtoweb convert pbcode w_test_amis d:/out.json --demo
+```
+
+2. 打开d:/out.json并复制文本
+3. 进入 [amis网站](https://aisuda.bce.baidu.com/amis/zh-CN/components/page), 找一个示例点击编码代码
+4. 粘贴就可以
+
+## 代码说明
 导出后的form.js类似这样
 ```js
 class w_test_web extends pbwindow {
@@ -216,7 +240,7 @@ class checkbox extends windowobject {
 root.checkbox = checkbox;
 
 ```
-如果有源码中没有的对象，或者一些第三方控件，可以在other.js中添加实现，添加后可以正常运行,如
+如果代码中有没有找到的对象，如一些第三方对象，会自动在other.js中定义该对象，如果没有添加的也可以自己在other.js中添加实现，添加后可以正常运行,如
 ```js
 (function(root) {
     root = root || global
@@ -249,29 +273,6 @@ root.uo_webbrowser = uo_webbrowser;
 ```
 如果一些pb运行函数没有实现，请修改`src/pbvm.js`进行函数添加或者pb标准对象的实现，并放到`demo/common`中可以看到效果。
 如果补充了`pbvm.js`标准库，请联系我(9091178@qq.com)更新，方便大家使用。感谢贡献力量推动pbtoweb前进。
-
-## 单独网页中查看
-1. 下载源码的文件夹demo
-2. 放到文件服务器中，如ngnix等，或者直接放到下载的satrda的 server/public 目录, 运行satserver.exe
-3. 浏览器输入 http://127.0.0.1:5555/demo
-其中demo/page文件夹中是导出的所有文件 
-
-## 在satweb中显示效果
-1. 将生成的form.js放到 server\plugins\web\dist\data\page 目录下面,并运行satserver.exe
-2. 浏览器输入 http://127.0.0.1:5555/webui ,如果未配置数据库，请参考http://www.satrda.com/doc/satweb/config.html 中的开始使用配置
-3. 在系统管理->菜单管理中随意找一个菜单，点击修改  修改-> 组件路径:amispage, 路由地址为 /data/page/vd.js 并保存。
-4. 刷新浏览器进入菜单可以看到效果。参考demo/vd.js 中的事件可以写实现自己的事件，代码基本和pb一样
-了解更多satweb可以进入 http://www.satrda.com/doc/satweb/config.html
-
-## 在amis网站上查看效果
-1. 命令行运行以下命令,会导出amis的json文件
-```shell
-node pbtoweb convert pbcode w_test_amis d:/out.json --demo
-```
-
-2. 打开d:/out.json并复制文本
-3. 进入 [amis网站](https://aisuda.bce.baidu.com/amis/zh-CN/components/page), 找一个示例点击编码代码
-4. 粘贴就可以
 
 
 

@@ -2,6 +2,8 @@ $PBExportHeader$w_test_amis.srw
 forward
 global type w_test_amis from window
 end type
+type cb_7 from commandbutton within w_test_amis
+end type
 type cb_4 from commandbutton within w_test_amis
 end type
 type cb_3 from commandbutton within w_test_amis
@@ -86,6 +88,7 @@ boolean resizable = true
 long backcolor = 67108864
 string icon = "AppIcon!"
 boolean center = true
+cb_7 cb_7
 cb_4 cb_4
 cb_3 cb_3
 tab_1 tab_1
@@ -95,12 +98,14 @@ end type
 global w_test_amis w_test_amis
 
 on w_test_amis.create
+this.cb_7=create cb_7
 this.cb_4=create cb_4
 this.cb_3=create cb_3
 this.tab_1=create tab_1
 this.cb_2=create cb_2
 this.cb_1=create cb_1
-this.Control[]={this.cb_4,&
+this.Control[]={this.cb_7,&
+this.cb_4,&
 this.cb_3,&
 this.tab_1,&
 this.cb_2,&
@@ -108,6 +113,7 @@ this.cb_1}
 end on
 
 on w_test_amis.destroy
+destroy(this.cb_7)
 destroy(this.cb_4)
 destroy(this.cb_3)
 destroy(this.tab_1)
@@ -116,6 +122,25 @@ destroy(this.cb_1)
 end on
 
 event resize;// resize
+end event
+
+type cb_7 from commandbutton within w_test_amis
+integer x = 2030
+integer y = 28
+integer width = 457
+integer height = 128
+integer taborder = 30
+integer textsize = -12
+integer weight = 400
+fontcharset fontcharset = ansi!
+fontpitch fontpitch = variable!
+fontfamily fontfamily = swiss!
+string facename = "Arial"
+string text = "visible"
+end type
+
+event clicked;//messagebox("",tab_1.tabpage_2.ddlb_1.text)
+tab_1.tabpage_2.sle_1.visible = not tab_1.tabpage_2.sle_1.visible
 end event
 
 type cb_4 from commandbutton within w_test_amis
@@ -130,10 +155,11 @@ fontcharset fontcharset = ansi!
 fontpitch fontpitch = variable!
 fontfamily fontfamily = swiss!
 string facename = "Arial"
-string text = "none"
+string text = "enabled"
 end type
 
-event clicked;messagebox("",tab_1.tabpage_2.ddlb_1.text)
+event clicked;//messagebox("",tab_1.tabpage_2.ddlb_1.text)
+tab_1.tabpage_2.sle_1.enabled = false
 end event
 
 type cb_3 from commandbutton within w_test_amis
@@ -242,8 +268,9 @@ string facename = "Arial"
 string text = "保存"
 end type
 
-event clicked;tab_1.tabpage_1.dw_1.setTransObject(sqlca)
-tab_1.tabpage_1.dw_1.update()
+event clicked;//tab_1.tabpage_1.dw_1.setTransObject(sqlca)
+//tab_1.tabpage_1.dw_1.update()
+cb_3.triggerevent("clicked")
 end event
 
 type cb_5 from commandbutton within tabpage_1

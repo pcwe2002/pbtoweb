@@ -7,13 +7,15 @@
   
   <link rel="stylesheet" href="./common/satreport.css">
   <link rel="stylesheet" href="./common/sdk.css">
+  <link rel="stylesheet" href="./common/helper.css" />
+  <link rel="stylesheet" href="./common/iconfont.css" />
 
   <script src="./common/axios.min.js"></script>
   <script src="./common/satreport.js"></script>
   <script src="./common/sdk.js"></script>
   <script src="./satrda.config.js"></script>
   <script src="./common/amisutils.js"></script>
-  <script src="./page/pbvm.js"></script>
+  <script src="./common/pbvm.js"></script>
   <script src="./page/other.js"></script>
 
 </head>
@@ -22,9 +24,8 @@
 
   <script type="module">
       import './page/index.js';
-	  
+
       const root = document.getElementById('root');
-	  //new PBPage(root);
       let w = new w_test_amis();
 	  w.show(root);
   </script>
