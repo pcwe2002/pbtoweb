@@ -27,7 +27,7 @@ Convert Powerbuilder UI to web Automatically.
    
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/zh-cn/download 下载安装
-2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）, 如果pb10以下的代码导出后需要用nodepad++ 打开文件转换编码为utf8编码
+2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）
 3. 进入命令行窗口cmd, 进入当前目录
 4. 如果要转化单独的窗口
 ```shell
