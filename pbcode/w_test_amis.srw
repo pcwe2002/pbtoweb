@@ -159,7 +159,7 @@ string text = "enabled"
 end type
 
 event clicked;//messagebox("",tab_1.tabpage_2.ddlb_1.text)
-tab_1.tabpage_2.sle_1.enabled = false
+tab_1.tabpage_2.sle_1.enabled = not tab_1.tabpage_2.sle_1.enabled
 end event
 
 type cb_3 from commandbutton within w_test_amis
@@ -520,6 +520,7 @@ fontpitch fontpitch = variable!
 fontfamily fontfamily = swiss!
 string facename = "Arial"
 long textcolor = 33554432
+boolean enabled = false
 string text = "2020-1-2"
 borderstyle borderstyle = stylelowered!
 maskdatatype maskdatatype = datemask!

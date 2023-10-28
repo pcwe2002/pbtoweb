@@ -153,7 +153,7 @@ class w_test_amis extends pbwindow {
 
   cb_4_clicked() {
     //messagebox("",tab_1.tabpage_2.ddlb_1.text)
-    this.tab_1.tabpage_2.sle_1.enabled = false;
+    this.tab_1.tabpage_2.sle_1.enabled = !this.tab_1.tabpage_2.sle_1.enabled;
   }
 
 
@@ -411,6 +411,7 @@ class w_test_amis extends pbwindow {
       "weight": "400",
       "facename": "Arial",
       "textcolor": "33554432",
+      "enabled": false,
       "text": "2020-1-2",
       "mask": "yyyy-mm-dd",
       "increment": 1,
