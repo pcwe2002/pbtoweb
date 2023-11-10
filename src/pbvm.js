@@ -4,6 +4,41 @@ function attrToMinMax(value) {
   const values = value.split("~~");
   return values.map((v) => parseInt(v));
 }
+function attrToPixels(value, isX, units) {
+  value = attrToInt(value);
+  units || (units = 0);
+  switch (units) {
+    case 0:
+      if (isX) {
+        return Math.round(value * 0.219);
+      }
+      return Math.round(value * 0.25);
+    case 1:
+      return value;
+    case 2:
+      return value;
+    case 3:
+      return value;
+    default:
+      return value;
+  }
+}
+function attrToInt(value) {
+  if (typeof value === "string") {
+    if (value.length > 0) {
+      if (value.charAt(0) === '"') {
+        if (value.charAt(value.length - 1) !== '"') {
+          value = value.substring(1);
+        } else {
+          value = value.substring(1, value.length - 1);
+        }
+      }
+      return parseInt(value);
+    }
+    return 0;
+  }
+  return value;
+}
 function addTextProperty(obj, page) {
   Object.defineProperties(obj, {
     "text": {
@@ -16,6 +51,42 @@ function addTextProperty(obj, page) {
       get: () => {
         const data = page.getProps().data;
         return data[obj.name];
+      }
+    }
+  });
+}
+function addEnabledProperty(obj, page) {
+  Object.defineProperties(obj, {
+    "enabled": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        const props = page.getProps();
+        props.store.changeValue(`disabled.${obj.name}`, !value);
+      },
+      get: () => {
+        const data = page.getProps().data;
+        const key = obj.name;
+        const disabled = data.disabled[key];
+        return !disabled;
+      }
+    }
+  });
+}
+function addVisibleProperty(obj, page) {
+  Object.defineProperties(obj, {
+    "visible": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        const props = page.getProps();
+        props.store.changeValue(`${obj.name}_invisible`, !value);
+      },
+      get: () => {
+        const data = page.getProps().data;
+        const key = obj.name + "_invisible";
+        const invisible = data[key];
+        return !invisible;
       }
     }
   });
@@ -68,6 +139,18 @@ function addPositionProperty(obj, dom) {
       get: () => {
         return getDom().offsetHeight;
       }
+    },
+    "visible": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        const v = value ? "visible" : "hidden";
+        getDom().style["visibility"] = v;
+      },
+      get: () => {
+        const v = getDom().style["visibility"];
+        return v !== "hidden";
+      }
     }
   });
   obj.resize = function(width, height) {
@@ -77,6 +160,9 @@ function addPositionProperty(obj, dom) {
   obj.move = (x, y) => {
     obj.x = x;
     obj.y = y;
+  };
+  obj.setfocus = () => {
+    getDom().focus();
   };
 }
 function getTypeofSign(name) {
@@ -111,6 +197,95 @@ function getTypeofSign(name) {
   return null;
 }
 
+// pbvm/pbdate.js
+Date.prototype.format = function(fmt) {
+  var o = {
+    "M+": this.getMonth() + 1,
+    //月份
+    "d+": this.getDate(),
+    //日
+    "h+": this.getHours(),
+    //小时
+    "m+": this.getMinutes(),
+    //分
+    "s+": this.getSeconds(),
+    //秒
+    "q+": Math.floor((this.getMonth() + 3) / 3),
+    //季度
+    "S": this.getMilliseconds()
+    //毫秒
+  };
+  if (/(y+)/.test(fmt)) {
+    fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+  }
+  for (var k in o) {
+    if (new RegExp("(" + k + ")").test(fmt)) {
+      fmt = fmt.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+    }
+  }
+  return fmt;
+};
+var PBDate = {
+  datetime(str) {
+    if (typeof str === "string") {
+      return new Date(str);
+    } else if (arguments.length === 1) {
+      return new Date(str);
+    } else {
+      let d1 = arguments[0];
+      let t1 = arguments[1];
+      return new Date(
+        d1.getFullYear(),
+        d1.getMonth(),
+        d1.getDate(),
+        t1.getHours(),
+        t1.getMinutes(),
+        t1.getSeconds()
+      );
+    }
+  },
+  date(str) {
+    const d = new Date(str);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  },
+  time(str) {
+    if (typeof str === "string") {
+      const value = "1970-01-01 " + str;
+      return new Date(value);
+    }
+    return new Date(str);
+  },
+  today() {
+    return /* @__PURE__ */ new Date();
+  },
+  now() {
+    return /* @__PURE__ */ new Date();
+  },
+  month(value) {
+    return value.getMonth() + 1;
+  },
+  year(value) {
+    return value.getFullYear();
+  },
+  day(value) {
+    return value.getDate();
+  },
+  relativedate(d, n) {
+    let someDate = new Date(d);
+    someDate.setDate(d.getDate() + n);
+    return someDate;
+  },
+  daysafter(date1, date2) {
+    if (date1 && date2) {
+      return (date2.getTime() - date1.getTime()) / (1e3 * 60 * 60 * 24);
+    } else {
+      return null;
+    }
+  }
+};
+var pbdate_default = PBDate;
+
 // pbvm/pbvm.js
 (function(root) {
   root = root || global;
@@ -120,18 +295,21 @@ function getTypeofSign(name) {
   let PB = {
     create(cls, options, parent2) {
       const a = new cls(options, parent2);
+      if (a instanceof nonvisualobject) {
+        a.pbconstructor();
+      }
       return a;
     },
     destroy(obj) {
     },
     trim(str) {
-      return str.trim();
+      return str ? str.trim() : "";
     },
     lefttrim(str) {
-      return str.trimStart();
+      return str ? str.trimStart() : "";
     },
     righttrim(str) {
-      return str.trimEnd();
+      return str ? str.trimEnd() : "";
     },
     space(n) {
       const arr = [];
@@ -174,21 +352,6 @@ function getTypeofSign(name) {
     },
     len(value) {
       return value.length;
-    },
-    today() {
-      return /* @__PURE__ */ new Date();
-    },
-    now() {
-      return /* @__PURE__ */ new Date();
-    },
-    month(value) {
-      return value.getMonth() + 1;
-    },
-    year(value) {
-      return value.getFullYear();
-    },
-    day(value) {
-      return value.getDate();
     },
     mod(x, y) {
       return x % y;
@@ -247,15 +410,74 @@ function getTypeofSign(name) {
     isvalid(value) {
       return !(value === null || value === void 0);
     },
-    triggerevent() {
+    pbyeild() {
+    },
+    async triggerevent(obj, func, ...args) {
+      let key = null;
+      if (obj._pbprops && obj._pbprops.events) {
+        key = obj._pbprops.events[func];
+      }
+      let f;
+      let win = obj;
+      while (win && !win[key] && win.parent) {
+        win = win.parent;
+      }
+      if (win && win[key]) {
+        f = win[key];
+        if (f) {
+          if (func === "pbconstructor") {
+            await f.call(obj, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
+          } else {
+            await f.call(win, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
+          }
+        }
+      } else {
+        f = obj[func];
+        if (f) {
+          await f.call(obj, ...args);
+        }
+      }
+    },
+    // 实现事件super的功能，先找窗口和继承窗口中是否有这个事件，如果有就执行，如果没有，执行对象的事件
+    async superevent({ ctl, pro, name, func }, ...arg) {
+      const p = pro.__proto__;
+      if (p[name]) {
+        await p[name].call(this, { ctl, pro: p, name, func }, ...arg);
+      } else if (ctl[func]) {
+        await ctl[func].call(ctl, ...arg);
+      }
+    },
+    setnull() {
+    },
+    pixelstounits(pixels, type) {
+      return pixels;
+    },
+    // XUnitsToPixels! YUnitsToPixels! 
+    unitstopixels(units, type) {
+      if (type === "xunitstopixels!" || type === "x") {
+        return attrToPixels(units, true, 0);
+      } else {
+        return attrToPixels(units, false, 0);
+      }
     }
   };
+  Object.assign(PB, pbdate_default);
   function messagebox(title, text, icon, button = "OK!") {
     const amis = amisRequire("amis");
     return new Promise((resolve) => {
       if (button === "OK!") {
         amis.alert(text, title);
-        resolve(1);
+        setTimeout(() => {
+          let footer = document.querySelector(".cxd-Modal-footer");
+          let cb = footer.children[0];
+          let f = () => {
+            cb.removeEventListener("click", f);
+            setTimeout(() => {
+              resolve(1);
+            }, 10);
+          };
+          cb.addEventListener("click", f);
+        }, 10);
       } else if (button === "YesNo!") {
         const p = amis.confirm(text, title, { confirmBtnLevel: "primary", confirmText: "\u662F", cancelText: "\u5426" });
         p.then((rtn) => {
@@ -270,6 +492,16 @@ function getTypeofSign(name) {
     });
   }
   PB.messagebox = messagebox;
+  PB.message = {
+    stringparm: "",
+    doubleparm: 0,
+    powerobjectparm: null
+  };
+  function getenvironment(env) {
+    env.screenheight = window.innerHeight;
+    env.screenwidth = window.innerWidth;
+  }
+  PB.getenvironment = getenvironment;
   Object.assign(root, PB);
   root.getTypeofSign = getTypeofSign;
   function findfunctionbyargs(data, args) {
@@ -330,34 +562,37 @@ function getTypeofSign(name) {
     return signs.join("");
   }
   class powerobject {
-    _className = "powerobject";
     _pbprops = {};
     constructor(options) {
       this._join_props(options);
     }
     typeof() {
-      return this._className + "!";
+      const typename = this.__proto__.constructor.name;
+      return typename + "!";
     }
     classname() {
-      return this._className;
-    }
-    triggerevent(eventName, ...args) {
-      const { events } = this._pbprops;
-      if (events && events[eventName]) {
-        let win = this.parent;
-        while (win && !(win instanceof pbwindow)) {
-          win = win.parent;
-        }
-        const evName = events[eventName];
-        win[evName].apply(this, args);
+      if (this.name) {
+        return this.name;
+      } else {
+        return this.__proto__.constructor.name;
       }
     }
+    triggerevent(eventName, ...args) {
+      PB.triggerevent(this, eventName, ...args);
+    }
+    postevent(eventName, ...args) {
+      setTimeout(() => {
+        PB.triggerevent(this, eventName, ...args);
+      }, 0);
+    }
     _join_props(props) {
+      if (props && props.name) {
+        this.name = props.name;
+      }
       Object.assign(this._pbprops, props);
     }
   }
   class nonvisualobject extends powerobject {
-    _className = "nonvisualobject";
     constructor() {
       super();
       this.create();
@@ -372,7 +607,6 @@ function getTypeofSign(name) {
     }
   }
   class windowobject extends powerobject {
-    _className = "windowobject";
     tag;
     visible;
     name;
@@ -385,16 +619,19 @@ function getTypeofSign(name) {
       super(options);
       this.parent = parent2;
       const attr = this._pbprops;
+      if (!attr.text) {
+        attr.text = "";
+      }
       this.width = attr.width;
       this.height = attr.height;
       const { events } = options;
-      if (events && events["create"]) {
-        let win = this.parent;
-        while (win && !(win instanceof pbwindow)) {
+      const key = events ? events["create"] : null;
+      if (key) {
+        let win = this;
+        while (win && !win[key] && win.parent) {
           win = win.parent;
         }
-        const evName = events["create"];
-        win[evName].apply(this);
+        win[key].apply(this);
       } else {
         this.create();
       }
@@ -404,6 +641,8 @@ function getTypeofSign(name) {
     resize(w, h) {
     }
     show() {
+    }
+    setredraw() {
     }
     create() {
     }
@@ -423,14 +662,18 @@ function getTypeofSign(name) {
           height: attr.height,
           position: "absolute",
           whiteSpace: "nowrap"
-        }
+        },
+        disabledOn: "disabled." + attr.name
       };
       this.name = attr.name;
       if (attr.textsize) {
-        actl.style.fontSize = attr.textsize + "px";
+        actl.style.fontSize = attr.textsize + "pt";
       }
       if (attr.visible === false) {
-        actl.visible = false;
+        actl.style.visibility = "hidden";
+      }
+      if (attr.enabled === false) {
+        options.page.data.disabled[attr.name] = true;
       }
       actl.tpl = `${this._className}:${attr.name}`;
       if (addprop && options.win) {
@@ -446,12 +689,16 @@ function getTypeofSign(name) {
       }
       if (options.win) {
         addTextProperty(this, options.win);
+        addEnabledProperty(this, options.win);
+        options.win[this.name] = this;
+      }
+      if (options.objects) {
+        options.objects.push(this);
       }
       return actl;
     }
   }
   class userobject extends windowobject {
-    _className = "userobject";
     pbconstructor() {
     }
     destructor() {
@@ -471,7 +718,16 @@ function getTypeofSign(name) {
         };
         delete attrs.type;
         Object.assign(actl.tab, attrs);
+        const vkey = attrs.name + "_invisible";
+        actl.disabledOn = attrs.disabledOn;
+        actl.visibleOn = "${!(" + vkey + " === true)}";
         childs = actl.tab.body;
+        if (options.win) {
+          addVisibleProperty(this, options.win);
+        }
+        if (attr.visible === false) {
+          delete actl.tab.style.visibility;
+        }
       } else {
         actl.type = "wrapper";
         childs = actl.body = [];
@@ -483,21 +739,39 @@ function getTypeofSign(name) {
     }
   }
   class tab extends windowobject {
-    _className = "tab";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
       delete actl.tpl;
       actl.type = "tabs";
+      actl.mountOnEnter = false;
       const childs = actl.tabs = [];
       for (const c of this.control) {
-        childs.push(c.toUI(options));
+        let ui = c.toUI(options);
+        ui.tab.style.height = "calc(100% - 31px)";
+        ui.tab.style.width = "100%";
+        ui.tab.style.top = 31;
+        childs.push(ui);
+      }
+      if (options.js && attr.events && attr.events["selectionchanged"]) {
+        const inst2 = this;
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": (ev, ev1, event, ev3) => {
+                  inst2.postevent("selectionchanged", ev.activeKey, event.data.value);
+                }
+              }
+            ]
+          }
+        };
       }
       return actl;
     }
   }
   class pbwindow extends windowobject {
-    _className = "window";
     constructor(options) {
       super(options);
     }
@@ -505,6 +779,8 @@ function getTypeofSign(name) {
     onResize(sizetype, newwidth, newheight) {
     }
     onOpen() {
+    }
+    onTimer() {
     }
     workspacewidth() {
       return this.width;
@@ -518,9 +794,19 @@ function getTypeofSign(name) {
     workspacey() {
       return this.y;
     }
+    timer(interval) {
+      if (this._interval) {
+        clearInterval(this._timer);
+      }
+      if (interval > 0) {
+        this._interval = setInterval(() => {
+          this.onTimer();
+        }, interval * 1e3);
+      }
+    }
     toUI(options) {
       const attr = this._pbprops;
-      let actl = super.toUI(options, false);
+      let actl = super.toUI(options, true);
       delete actl.tpl;
       actl.type = "wrapper";
       actl.style.position = "relative";
@@ -543,7 +829,7 @@ function getTypeofSign(name) {
           // "--Form-selectOption-height":"",
           // "--select-base-default-fontSize":"",
         },
-        data: { showLoading: false },
+        data: { showLoading: false, disabled: {} },
         css: {},
         body: [{
           "type": "spinner",
@@ -554,22 +840,34 @@ function getTypeofSign(name) {
         }],
         events: []
       };
-      const options = { css: amisJson.css, page: amisJson, js: true, win: this };
+      const options = { css: amisJson.css, page: amisJson, js: true, win: this, objects: [] };
       let ui = this.toUI(options);
       amisJson.body.push(ui);
-      const amis = amisRequire("amis/embed");
-      const config = window.baseConfig || parent.baseConfig;
-      this.amisLib = amisRequire("amis");
+      let objects = options.objects;
       const page = this._page = {
         root: root2,
         onResize: (sizetype, newwidth, newheight) => {
+          this.resize(newwidth, newheight);
           this.onResize(sizetype, newwidth, newheight);
         },
-        onInit: () => {
+        onInit: async () => {
+          let p = this._page.loadDW;
+          if (p) {
+            await Promise.all(p);
+            this._page.loadDW = null;
+          }
+          for (let index = objects.length - 1; index >= 0; index--) {
+            const obj = objects[index];
+            obj.triggerevent("pbconstructor");
+          }
           this.onOpen();
         }
       };
+      page.inst = this;
       this.root = root2;
+      const amis = amisRequire("amis/embed");
+      const config = window.baseConfig || parent.baseConfig;
+      this.amisLib = amisRequire("amis");
       this.amisScoped = amis.embed(this.root, amisJson, { data: { apiurl: config.api, page: () => {
         return page;
       } } });
@@ -580,19 +878,39 @@ function getTypeofSign(name) {
       return props;
     }
   }
+  class rectangle extends windowobject {
+  }
+  root.rectangle = rectangle;
+  class roundrectangle extends windowobject {
+  }
+  root.roundrectangle = roundrectangle;
   class statictext extends windowobject {
-    _className = "statictext";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
       actl.type = "tpl";
       actl.tpl = "${" + attr.name + "}";
       options.page.data[attr.name] = attr.text;
+      if (options.js && attr.events && attr.events["clicked"]) {
+        const inst2 = this;
+        actl.onEvent = {
+          "click": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": (e, props) => {
+                  inst2.triggerevent("clicked", e, props);
+                }
+              }
+            ]
+          }
+        };
+        actl.style.cursor = "pointer";
+      }
       return actl;
     }
   }
   class singlelineedit extends windowobject {
-    _className = "singlelineedit";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -601,11 +919,24 @@ function getTypeofSign(name) {
       actl.value = attr.text;
       actl.inputControlClassName = `${this.name}`;
       options.css[`.${attr.name}`] = { "height": attr.height + "px!important", "padding": "0px 5px!important" };
+      if (options.js && attr.events && attr.events["modified"]) {
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": () => {
+                  inst.postevent("modified");
+                }
+              }
+            ]
+          }
+        };
+      }
       return actl;
     }
   }
   class multilineedit extends windowobject {
-    _className = "multilineedit";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -613,11 +944,24 @@ function getTypeofSign(name) {
       actl.type = "textarea";
       actl.value = attr.text;
       options.css[`.${attr.name} textarea`] = { "max-height": `${attr.height}px`, "min-height": `${attr.height}px`, "resize": "none" };
+      if (options.js && attr.events && attr.events["modified"]) {
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": () => {
+                  inst.postevent("modified");
+                }
+              }
+            ]
+          }
+        };
+      }
       return actl;
     }
   }
   class editmask extends windowobject {
-    _className = "editmask";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -638,11 +982,28 @@ function getTypeofSign(name) {
           actl.step = attr.increment;
         }
       }
+      if (options.js && attr.events && attr.events["modified"]) {
+        const inst2 = this;
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": () => {
+                  inst2.postevent("modified");
+                }
+              }
+            ]
+          }
+        };
+      }
       return actl;
     }
   }
+  class richtextedit extends multilineedit {
+  }
+  root.richtextedit = richtextedit;
   class commandbutton extends windowobject {
-    _className = "commandbutton";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -650,17 +1011,15 @@ function getTypeofSign(name) {
       actl.type = "button";
       actl.label = attr.text;
       if (options.js && attr.events && attr.events["clicked"]) {
-        const key = `${attr.name}_clicked`;
-        const inst = options.win;
+        const inst2 = this;
         actl.onClick = (e, props) => {
-          inst[key](e, props);
+          inst2.triggerevent("clicked", e, props);
         };
       }
       return actl;
     }
   }
   class checkbox extends windowobject {
-    _className = "checkbox";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -677,7 +1036,6 @@ function getTypeofSign(name) {
     }
   }
   class radiobutton extends windowobject {
-    _className = "radiobutton";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -702,7 +1060,6 @@ function getTypeofSign(name) {
     }
   }
   class groupbox extends windowobject {
-    _className = "radiobutton";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -713,7 +1070,6 @@ function getTypeofSign(name) {
     }
   }
   class dropdownlistbox extends windowobject {
-    _className = "dropdownlistbox";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -736,7 +1092,6 @@ function getTypeofSign(name) {
     }
   }
   class hprogressbar extends windowobject {
-    _className = "progress";
     _minposition = 0;
     _maxposition = 0;
     _position = 0;
@@ -768,11 +1123,18 @@ function getTypeofSign(name) {
       return this._position;
     }
     set setstep(value) {
-      this.text = value;
+      this._position = value;
+      this.text = this._getValue();
+    }
+    get position() {
+      return this._position;
+    }
+    set position(value) {
+      this._position = value;
+      this.text = this._getValue();
     }
   }
   class picture extends windowobject {
-    _className = "picture";
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -786,8 +1148,150 @@ function getTypeofSign(name) {
       return actl;
     }
   }
+  function addDWProperties(dwCls) {
+    const p = dwCls.prototype;
+    p.accepttext = function() {
+    };
+    p.settransobject = function(db) {
+      return this._dw.setTransObject(db);
+    };
+    p.dbcancel = function() {
+    };
+    p.getchild = function(name) {
+      let dw = this._dw.getChild(name);
+      if (dw) {
+        return new datawindowchild(dw);
+      } else {
+        return null;
+      }
+    };
+    p.rowcount = function() {
+      return this._dw.rowCount();
+    };
+    p.setitem = function(row, column, value) {
+      return this._dw.setItem(...arguments);
+    };
+    p.getitem = function(row, column = null) {
+      return this._dw.setItem(...arguments);
+    };
+    p.setitemstatus = function(row, column, dwbuffer, status) {
+      return this._dw.setItemsSatus(...arguments);
+    };
+    p.getitemstatus = function(row, column, dwbuffer) {
+      return this._dw.getItemStatus(...arguments);
+    };
+    p.insertrow = function(row) {
+      return this._dw.insertRow(...arguments);
+    };
+    p.deleterow = function(row) {
+      return this._dw.deleteRow(...arguments);
+    };
+    p.retrieve = async function(...args) {
+      return this._dw.retrieve(...arguments);
+    };
+    p.update = function(accept = true, resetflag = true) {
+      return this._dw.update(...arguments);
+    };
+    p.resetupdate = function() {
+      return this._dw.resetUpdate();
+    };
+    p.reset = function() {
+      return this._dw.reset();
+    };
+    p.setrow = function(row) {
+      return this._dw.setRow(...arguments);
+    };
+    p.scrolltorow = function(row) {
+      return this._dw.scrollToRow(...arguments);
+    };
+    p.getrow = function() {
+      return this._dw.getRow(...arguments);
+    };
+    p.selectrow = function(row, select) {
+      return this._dw.selectRow(...arguments);
+    };
+    p.isselected = function(row) {
+      return this._dw.isSelected(...arguments);
+    };
+    p.getselectedrows = function() {
+      return this._dw.getSelectedRows(...arguments);
+    };
+    p.sharedata = function(dwsecondary) {
+      return this._dw.shareData(...arguments);
+    };
+    p.sharedataoff = function() {
+      return this._dw.shareDataOff(...arguments);
+    };
+    p.rowsmove = function(startrow, endrow, movebuffer, targetdw, beforerow, targetbuffer) {
+      return this._dw.rowsMove(...arguments);
+    };
+    p.rowscopy = function(startrow, endrow, copybuffer, targetdw, beforerow, targetbuffer) {
+      return this._dw.rowsCopy(...arguments);
+    };
+    p.rowsdiscard = function(startrow, endrow, buffer = DWBuffer.Primary) {
+      return this._dw.rowsDiscard(...arguments);
+    };
+    p.setsort = function(format) {
+      return this._dw.setSort(...arguments);
+    };
+    p.sort = function() {
+      return this._dw.sort(...arguments);
+    };
+    p.setfilter = function(format) {
+      return this._dw.setFilter(...arguments);
+    };
+    p.filter = function() {
+      return this._dw.filter(...arguments);
+    };
+    p.filterall = function(text) {
+      return this._dw.filterAll(...arguments);
+    };
+    p.find = function(expression, start, end) {
+      return this._dw.find(...arguments);
+    };
+    p.deletedcount = function() {
+      return this._dw.deletedCount(...arguments);
+    };
+    p.filteredcount = function() {
+      return this._dw.filteredCount(...arguments);
+    };
+    p.modifiedcount = function() {
+      return this._dw.modifiedCount(...arguments);
+    };
+    p.getchanges = function(data) {
+      return this._dw.getChanges(...arguments);
+    };
+    p.setchanges = function(data) {
+      return this._dw.setChanges(...arguments);
+    };
+    p.setrow = function(row) {
+      return this._dw.setRow(...arguments);
+    };
+    p.scrolltorow = function(row) {
+      return this._dw.scrollToRow(...arguments);
+    };
+    p.setredraw = function(redraw) {
+      return this._dw.setRedraw(...arguments);
+    };
+  }
+  class datastore extends powerobject {
+    constructor(ds) {
+      super({});
+      if (ds) {
+        this._dw = ds;
+      } else {
+        this._dw = new DataStore();
+      }
+    }
+    get dataobject() {
+      return this._dw.dataobject;
+    }
+    set dataobject(value) {
+      this._dw.dataobject = value;
+    }
+  }
+  addDWProperties(datastore);
   class datawindow extends windowobject {
-    _className = "datawindow";
     toUI(options) {
       let actl = super.toUI(options);
       const attr = this._pbprops;
@@ -808,10 +1312,9 @@ function getTypeofSign(name) {
         for (const key in attr.events) {
           const evName = dwEvent[key];
           if (evName) {
-            const inst = options.win;
-            const evKey = `${attr.name}_${key}`;
-            actl[evName] = (e, props) => {
-              inst[evKey](e, props);
+            const inst2 = this;
+            actl[evName] = (...args) => {
+              inst2.triggerevent(key, ...args);
             };
           }
         }
@@ -819,6 +1322,9 @@ function getTypeofSign(name) {
       if (options.win) {
         this._win = options.win;
         this._dataobject = attr.dataobject;
+        addPositionProperty(this, () => {
+          return this._dw._.targetEl;
+        });
       }
       return actl;
     }
@@ -832,109 +1338,119 @@ function getTypeofSign(name) {
       this._dataobject = value;
       this._dw.dataobject = value;
     }
-    settransobject(db) {
-      return this._dw.setTransObject();
+    get object() {
+      return this._dw.object;
     }
-    rowcount() {
-      return this._dw.rowCount();
-    }
-    setitem(row, column, value) {
-      return this._dw.setItem(...arguments);
-    }
-    getitem(row, column = null) {
-      return this._dw.setItem(...arguments);
-    }
-    setitemstatus(row, column, dwbuffer, status) {
-      return this._dw.setItemsSatus(...arguments);
-    }
-    getitemstatus(row, column, dwbuffer) {
-      return this._dw.getItemStatus(...arguments);
-    }
-    insertrow(row) {
-      return this._dw.insertRow(...arguments);
-    }
-    deleterow(row) {
-      return this._dw.deleteRow(...arguments);
-    }
-    retrieve(...args) {
-      return this._dw.retrieve(...arguments);
-    }
-    update(accept = true, resetflag = true) {
-      return this._dw.update(...arguments);
-    }
-    resetupdate() {
-      return this._dw.resetUpdate();
-    }
-    reset() {
-      return this._dw.reset();
-    }
-    setrow(row) {
-      return this._dw.setRow(...arguments);
-    }
-    scrolltorow(row) {
-      return this._dw.scrollToRow(...arguments);
-    }
-    getrow() {
-      return this._dw.getRow(...arguments);
-    }
-    selectrow(row, select) {
-      return this._dw.selectRow(...arguments);
-    }
-    isselected(row) {
-      return this._dw.isSelected(...arguments);
-    }
-    getselectedrows() {
-      return this._dw.getSelectedRows(...arguments);
-    }
-    sharedata(dwsecondary) {
-      return this._dw.shareData(...arguments);
-    }
-    sharedataoff() {
-      return this._dw.shareDataOff(...arguments);
-    }
-    rowsmove(startrow, endrow, movebuffer, targetdw, beforerow, targetbuffer) {
-      return this._dw.rowsMove(...arguments);
-    }
-    rowscopy(startrow, endrow, copybuffer, targetdw, beforerow, targetbuffer) {
-      return this._dw.rowsCopy(...arguments);
-    }
-    rowsdiscard(startrow, endrow, buffer = DWBuffer.Primary) {
-      return this._dw.rowsDiscard(...arguments);
-    }
-    setsort(format) {
-      return this._dw.setSort(...arguments);
-    }
-    sort() {
-      return this._dw.sort(...arguments);
-    }
-    setfilter(format) {
-      return this._dw.setFilter(...arguments);
-    }
-    filter() {
-      return this._dw.filter(...arguments);
-    }
-    filterall(text) {
-      return this._dw.filterAll(...arguments);
-    }
-    find(expression, start, end) {
-      return this._dw.find(...arguments);
-    }
-    deletedcount() {
-      return this._dw.deletedCount(...arguments);
-    }
-    filteredcount() {
-      return this._dw.filteredCount(...arguments);
-    }
-    modifiedcount() {
-      return this._dw.modifiedCount(...arguments);
-    }
-    getchanges(data) {
-      return this._dw.getChanges(...arguments);
-    }
-    setchanges(data) {
-      return this._dw.setChanges(...arguments);
+    // settransobject(db) {
+    //   return this._dw.setTransObject();
+    // }
+    // rowcount () {
+    //   return this._dw.rowCount();
+    // }
+    // setitem(row,column,value) {
+    //   return this._dw.setItem(...arguments);
+    // }
+    // getitem(row,column = null) {
+    //   return this._dw.setItem(...arguments);
+    // }
+    // setitemstatus ( row, column, dwbuffer, status ) {
+    //   return this._dw.setItemsSatus(...arguments);
+    // }
+    // getitemstatus ( row, column, dwbuffer) {
+    //   return this._dw.getItemStatus(...arguments);
+    // }
+    // insertrow(row) {
+    //   return this._dw.insertRow(...arguments);
+    // }
+    // deleterow ( row ) {
+    //   return this._dw.deleteRow(...arguments);
+    // }
+    // async retrieve(...args) {
+    //   return this._dw.retrieve(...arguments);
+    // }
+    // update(accept = true,resetflag = true) {
+    //   return this._dw.update(...arguments);
+    // }
+    // resetupdate() {
+    //   return this._dw.resetUpdate();
+    // }
+    // reset() {
+    //   return this._dw.reset();
+    // }
+    // setrow(row) {
+    //   return this._dw.setRow(...arguments);
+    // }
+    // scrolltorow(row) {
+    //   return this._dw.scrollToRow(...arguments);
+    // }
+    // getrow() {
+    //   return this._dw.getRow(...arguments);
+    // }
+    // selectrow(row, select) {
+    //   return this._dw.selectRow(...arguments);
+    // }
+    // isselected(row) {
+    //   return this._dw.isSelected(...arguments);
+    // }
+    // getselectedrows() {
+    //   return this._dw.getSelectedRows(...arguments);
+    // }
+    // sharedata(dwsecondary) {
+    //   return this._dw.shareData(...arguments);
+    // }
+    // sharedataoff() {
+    //   return this._dw.shareDataOff(...arguments);
+    // }
+    // rowsmove (  startrow,  endrow, movebuffer, targetdw, beforerow, targetbuffer ) {
+    //   return this._dw.rowsMove(...arguments);
+    // }
+    // rowscopy (  startrow,  endrow, copybuffer, targetdw, beforerow, targetbuffer ) {
+    //   return this._dw.rowsCopy(...arguments);
+    // }
+    // rowsdiscard(startrow,endrow,buffer = DWBuffer.Primary) {
+    //   return this._dw.rowsDiscard(...arguments);
+    // }
+    // setsort(format) {
+    //   return this._dw.setSort(...arguments);
+    // }
+    // sort() {
+    //   return this._dw.sort(...arguments);
+    // }
+    // setfilter(format) {
+    //   return this._dw.setFilter(...arguments);
+    // }
+    // filter() {
+    //   return this._dw.filter(...arguments);
+    // }
+    // filterall(text) {
+    //   return this._dw.filterAll(...arguments);
+    // }
+    // find(expression,start,end) {
+    //   return this._dw.find(...arguments);
+    // }
+    // deletedcount() {
+    //   return this._dw.deletedCount(...arguments);
+    // }
+    // filteredcount() {
+    //   return this._dw.filteredCount(...arguments);
+    // }
+    // modifiedcount() {
+    //   return this._dw.modifiedCount(...arguments);
+    // }
+    // getchanges(data) {
+    //   return this._dw.getChanges(...arguments);
+    // }
+    // setchanges(data) {
+    //   return this._dw.setChanges(...arguments);
+    // }
+  }
+  addDWProperties(datawindow);
+  class datawindowchild extends datastore {
+    constructor(ds) {
+      super(ds);
     }
   }
+  root.datawindowchild = datawindowchild;
   root.powerobject = powerobject;
   root.nonvisualobject = nonvisualobject;
   root.userobject = userobject;
@@ -953,4 +1469,5 @@ function getTypeofSign(name) {
   root.picture = picture;
   root.hprogressbar = hprogressbar;
   root.datawindow = datawindow;
+  root.datastore = datastore;
 })(typeof window !== "undefined" ? window : null);
