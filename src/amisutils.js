@@ -118,8 +118,6 @@ if (!window.getQueryString) {
     // }
 
     get text() {
-      // 因为设置text是异步的，所以在设置数据同一个方法中取数据会得到原来的数据
-      // 建议在 sle_1.text = '123'; 的同一个方法中取数据时不要通过 sle_1.text
       const data = this.page.getProps().data;
       return data[this._name];
     }
@@ -274,55 +272,6 @@ if (!window.getQueryString) {
   }
 
   function left(str, n) {
-    return str.substr(0, n);
-  }
-
-  function right(str, n) {
-    let l = value.length - n;
-    if (l < 0) {
-      l = 0;
-    }
-    return value.substr(l);
-  }
-
-  function mid(value, start, length) {
-    return value.substr(start - 1, length);
-  }
-
-  function len(value) {
-    return value.length;
-  }
-
-  function long(value) {
-    return Number(value);
-  }
-
-  function mod(x, y) {
-    return x % y;
-  }
-
-  function lower(value) {
-    if (typeof value === 'string') {
-      return value.toLowerCase();
-    } else {
-      throw new Error('lower() argument is not string');
-    }
-  }
-
-  function upper(value) {
-    if (typeof value === 'string') {
-      return value.toUpperCase();
-    } else {
-      throw new Error('upper() argument is not string');
-    }
-  }
-
-  function pos(value, s, n) {
-    if (n) {
-      return value.indexOf(s, n - 1) + 1;
-    } else {
-      return value.indexOf(s) + 1;
-    }
 
   }
 
@@ -336,16 +285,7 @@ if (!window.getQueryString) {
     messageBox,
     trim,
     leftTrim,
-    rightTrim,
-    left,
-    right,
-    mid,
-    len,
-    long,
-    mod,
-    lower,
-    upper,
-    pos
+    rightTrim
   });
 
 })();
@@ -373,7 +313,7 @@ if (!window.getQueryString) {
       let ret = await  axios.post('/h5dw/update',{key:key, data});
       // amisScoped.updateProps({data:{showLoading:false}});
       if (ret.status === 200) {
-        return ret.data.status;
+        return ret.data.status === 0  ? 1 : -1;
       } else {
         return -1;
       }
@@ -390,8 +330,13 @@ if (!window.getQueryString) {
     reset() {
       this.sqls = [];
     },
+    async embedsql(key, parameter) {
+      let ret = await axios.post('/embedsql')
+    }
   };
 
+	window.sqlca = db;
+	
   let index = 0;
   // window.enableAMISDebug = true;
   let amisLib = amisRequire('amis');
@@ -454,6 +399,7 @@ if (!window.getQueryString) {
           name = `dw${++index}`;
         }
         dom.current.key = name;
+        dom.current.className = name;
         if (!dom.current.dw) {
           props.name = name;
           const dw = new DataWindow(dom.current);
@@ -500,7 +446,7 @@ if (!window.getQueryString) {
 
         }
         // dom.current.style = getStyle(style);
-      },[props.$schema.style]);
+      },[props.$schema.style.width,props.$schema.style.height,props.$schema.style.top,props.$schema.style.left]);
 
       React.useEffect(function () {
         if (props.$schema.dataobject) {
@@ -514,32 +460,46 @@ if (!window.getQueryString) {
         }
       },[props.data.dataobject]);
 
-      React.useEffect(async function () {
+      React.useEffect(function () {
         if (props.$schema.dataObjectURI) {
           const key = evalValue(props.$schema.dataObjectURI, props.data);
           // console.log('dataObjectURI get:' + key, props.$schema.dataObjectURI);
           let page = getPage(props);
-          if (page && page.amisScoped) {
-           page.amisScoped.updateProps({data:{showLoading:true}});
-          }
+          
           //
-          props.data.showLoading = true;
-          const dataobject = await dwGetDataObject(key);
-          //props.data.showLoading = false;
-          if (page && page.amisScoped) {
-            page.amisScoped.updateProps({data:{showLoading:false}});
-          }
-          if (dataobject) {
-            // const name = dom.current.key;
-            const dw = dom.current.dw;
-            dw.dataObject = dataobject;
-            dw.setTransObject(db);
+          // props.data.showLoading = true;
 
-            if (props.$schema.onLoad) {
-              setTimeout(()=> {
-                props.$schema.onLoad(dw);
-              },0)
-
+          const p = new Promise(async (reslove, reject) => {
+            if (page && page.amisScoped) {
+              page.amisScoped.updateProps({data:{showLoading:true}});
+             }
+            const dataobject = await dwGetDataObject(key);
+            //props.data.showLoading = false;
+            if (page && page.amisScoped) {
+              page.amisScoped.updateProps({data:{showLoading:false}});
+            }
+            if (dataobject) {
+              // const name = dom.current.key;
+              const dw = dom.current.dw;
+              
+              await dw.setDataObject(dataobject);
+              dw.setTransObject(db);
+              
+  
+              if (props.$schema.onLoad) {
+                setTimeout(()=> {
+                  props.$schema.onLoad(dw);
+                },0)
+              }
+            }
+            reslove(1);
+          });
+          
+          if (page) {
+            if (!page.loadDW) {
+              page.loadDW = [];
+            } else {
+              page.loadDW.push(p);
             }
           }
         }

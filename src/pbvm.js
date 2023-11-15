@@ -198,33 +198,6 @@ function getTypeofSign(name) {
 }
 
 // pbvm/pbdate.js
-Date.prototype.format = function(fmt) {
-  var o = {
-    "M+": this.getMonth() + 1,
-    //月份
-    "d+": this.getDate(),
-    //日
-    "h+": this.getHours(),
-    //小时
-    "m+": this.getMinutes(),
-    //分
-    "s+": this.getSeconds(),
-    //秒
-    "q+": Math.floor((this.getMonth() + 3) / 3),
-    //季度
-    "S": this.getMilliseconds()
-    //毫秒
-  };
-  if (/(y+)/.test(fmt)) {
-    fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
-  }
-  for (var k in o) {
-    if (new RegExp("(" + k + ")").test(fmt)) {
-      fmt = fmt.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
-    }
-  }
-  return fmt;
-};
 var PBDate = {
   datetime(str) {
     if (typeof str === "string") {
@@ -285,6 +258,38 @@ var PBDate = {
   }
 };
 var pbdate_default = PBDate;
+
+// pbvm/pbfile.js
+var profile = {
+  "satrda": {
+    "section": {
+      "key": 1
+    }
+  }
+};
+var PBFile = {
+  profilestring(filename, section, key, value) {
+    let p = profile[filename];
+    if (p) {
+      p = p[section];
+      if (p[key] !== void 0) {
+        return p[key];
+      }
+    }
+    return value;
+  },
+  setprofilestring(filename, section, key, value) {
+    if (!profile[filename]) {
+      profile[filename] = {};
+    }
+    let obj = profile[filename];
+    if (!obj[section]) {
+      obj = obj[section] = {};
+    }
+    obj[key] = value;
+  }
+};
+var pbfile_default = PBFile;
 
 // pbvm/pbvm.js
 (function(root) {
@@ -462,6 +467,7 @@ var pbdate_default = PBDate;
     }
   };
   Object.assign(PB, pbdate_default);
+  Object.assign(PB, pbfile_default);
   function messagebox(title, text, icon, button = "OK!") {
     const amis = amisRequire("amis");
     return new Promise((resolve) => {
@@ -502,6 +508,43 @@ var pbdate_default = PBDate;
     env.screenwidth = window.innerWidth;
   }
   PB.getenvironment = getenvironment;
+  PB.openwithparam = function(windowvar, parameter) {
+    PB.message.stringparm = void 0;
+    PB.message.doubleparm = void 0;
+    PB.message.powerobjectparm = void 0;
+    const ptype = typeof parameter;
+    if (ptype === "string") {
+      PB.message.stringparm = parameter;
+    } else if (ptype === "number") {
+      PB.message.doubleparm = parameter;
+    } else {
+      PB.message.powerobjectparm = parameter;
+    }
+    const content = document.createElement("div");
+    const w = new windowvar();
+    const d = new H5UI.Modal(w._pbprops.title, [content], w._pbprops.width);
+    w._dialog = d;
+    return new Promise((resolve) => {
+      d.show((returnvalue) => {
+        resolve(returnvalue);
+      });
+      w.show(content);
+    });
+  };
+  PB.closewithreturn = function(windowname, returnvalue) {
+    PB.message.stringparm = void 0;
+    PB.message.doubleparm = void 0;
+    PB.message.powerobjectparm = void 0;
+    const ptype = typeof returnvalue;
+    if (ptype === "string") {
+      PB.message.stringparm = returnvalue;
+    } else if (ptype === "number") {
+      PB.message.doubleparm = returnvalue;
+    } else {
+      PB.message.powerobjectparm = returnvalue;
+    }
+    windowname.close(returnvalue);
+  };
   Object.assign(root, PB);
   root.getTypeofSign = getTypeofSign;
   function findfunctionbyargs(data, args) {
@@ -592,6 +635,110 @@ var pbdate_default = PBDate;
       Object.assign(this._pbprops, props);
     }
   }
+  class transaction extends powerobject {
+    dbms = "";
+    sqlcode = 0;
+    sqlerrtext = "";
+    sqlnrows = 0;
+    id = 0;
+    autocommit = false;
+    async ping() {
+      if (this.id <= 0) {
+        clearTimeout(this._timerPing);
+        this._timerPing = 0;
+        return 0;
+      }
+      let ret = await axios.post("/sqlca/ping", { id: this.id });
+      if (ret.status === 200) {
+        return 0;
+      } else {
+        return -1;
+      }
+    }
+    async connect() {
+      let ret = await axios.post("/sqlca/connect", { key: this.dbms });
+      if (ret.status === 200) {
+        this.id = ret.data.id;
+        this._timerPing = setTimeout(() => {
+          this.ping();
+        }, 3e4);
+      } else {
+        this.sqlerrtext = ret.data.msg;
+      }
+      return this.id;
+    }
+    async disconnect() {
+      if (this.id <= 0) {
+        return;
+      }
+      let ret = await axios.post("/sqlca/disconnect", { id: this.id });
+      if (ret.status === 200) {
+        this.id = 0;
+        clearTimeout(this._timerPing);
+        this._timerPing = 0;
+      }
+    }
+    async begintrans() {
+      if (this.id <= 0) {
+        return;
+      }
+      let ret = await axios.post("/sqlca/begintrans", { id: this.id });
+      if (ret.status === 200) {
+        return 0;
+      }
+      return -1;
+    }
+    async commit() {
+      if (this.id <= 0) {
+        return;
+      }
+      let ret = await axios.post("/sqlca/commit", { id: this.id });
+      if (ret.status === 200) {
+        return 0;
+      }
+      return -1;
+    }
+    async rollback() {
+      if (this.id <= 0) {
+        return;
+      }
+      let ret = await axios.post("/sqlca/rollback", { id: this.id });
+      if (ret.status === 200) {
+        return 0;
+      }
+      return -1;
+    }
+    async retrieveDW(sql, ...arg) {
+      let ret = await axios.post("/h5dw/retrieve", { key: sql, args: arg, id: this.id });
+      if (ret.status === 200) {
+        return ret.data.data;
+      }
+      throw `retrieve error ${ret.status}`;
+    }
+    async updateDW(key, data) {
+      let ret = await axios.post("/h5dw/update", { key, data, id: this.id });
+      if (ret.status === 200) {
+        return ret.data.status === 0 ? 1 : -1;
+      } else {
+        return -1;
+      }
+    }
+    async syntaxFromSQL(sql) {
+      let ret = await axios.post("/h5dw/syntax", { sql, id: this.id });
+      if (ret.status === 200) {
+        return ret.data.data;
+      }
+      throw `syntaxFromSQL error ${ret.status}`;
+    }
+    async execute(key, args) {
+      let ret = await axios.post("/embedsql", { key, args, id: this.id, autocommit: this.autocommit });
+      if (ret.status === 200) {
+        return ret.data.data;
+      }
+      throw `execute error ${ret.status}`;
+    }
+  }
+  root.transaction = transaction;
   class nonvisualobject extends powerobject {
     constructor() {
       super();
@@ -761,7 +908,7 @@ var pbdate_default = PBDate;
               {
                 "actionType": "custom",
                 "script": (ev, ev1, event, ev3) => {
-                  inst2.postevent("selectionchanged", ev.activeKey, event.data.value);
+                  inst2.postevent("selectionchanged", ev.activeKey + 1, event.data.value + 1);
                 }
               }
             ]
@@ -825,7 +972,8 @@ var pbdate_default = PBDate;
       const amisJson = {
         type: "page",
         cssVars: {
-          "--checkbox-checkbox-default-fontSize": ""
+          "--checkbox-checkbox-default-fontSize": "",
+          "--Page-body-padding": 0
           // "--Form-selectOption-height":"",
           // "--select-base-default-fontSize":"",
         },
@@ -876,6 +1024,11 @@ var pbdate_default = PBDate;
       let ctls = this.amisScoped.getComponents();
       const props = ctls[0].props;
       return props;
+    }
+    close(rtn) {
+      if (this._dialog) {
+        this._dialog.hide(rtn);
+      }
     }
   }
   class rectangle extends windowobject {

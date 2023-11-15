@@ -313,7 +313,7 @@ if (!window.getQueryString) {
       let ret = await  axios.post('/h5dw/update',{key:key, data});
       // amisScoped.updateProps({data:{showLoading:false}});
       if (ret.status === 200) {
-        return ret.data.status;
+        return ret.data.status === 0  ? 1 : -1;
       } else {
         return -1;
       }
@@ -330,6 +330,9 @@ if (!window.getQueryString) {
     reset() {
       this.sqls = [];
     },
+    async embedsql(key, parameter) {
+      let ret = await axios.post('/embedsql')
+    }
   };
 
 	window.sqlca = db;
@@ -396,6 +399,7 @@ if (!window.getQueryString) {
           name = `dw${++index}`;
         }
         dom.current.key = name;
+        dom.current.className = name;
         if (!dom.current.dw) {
           props.name = name;
           const dw = new DataWindow(dom.current);
@@ -442,7 +446,7 @@ if (!window.getQueryString) {
 
         }
         // dom.current.style = getStyle(style);
-      },[props.$schema.style]);
+      },[props.$schema.style.width,props.$schema.style.height,props.$schema.style.top,props.$schema.style.left]);
 
       React.useEffect(function () {
         if (props.$schema.dataobject) {
@@ -456,32 +460,46 @@ if (!window.getQueryString) {
         }
       },[props.data.dataobject]);
 
-      React.useEffect(async function () {
+      React.useEffect(function () {
         if (props.$schema.dataObjectURI) {
           const key = evalValue(props.$schema.dataObjectURI, props.data);
           // console.log('dataObjectURI get:' + key, props.$schema.dataObjectURI);
           let page = getPage(props);
-          if (page && page.amisScoped) {
-           page.amisScoped.updateProps({data:{showLoading:true}});
-          }
+          
           //
-          props.data.showLoading = true;
-          const dataobject = await dwGetDataObject(key);
-          //props.data.showLoading = false;
-          if (page && page.amisScoped) {
-            page.amisScoped.updateProps({data:{showLoading:false}});
-          }
-          if (dataobject) {
-            // const name = dom.current.key;
-            const dw = dom.current.dw;
-            dw.dataObject = dataobject;
-            dw.setTransObject(db);
+          // props.data.showLoading = true;
 
-            if (props.$schema.onLoad) {
-              setTimeout(()=> {
-                props.$schema.onLoad(dw);
-              },0)
-
+          const p = new Promise(async (reslove, reject) => {
+            if (page && page.amisScoped) {
+              page.amisScoped.updateProps({data:{showLoading:true}});
+             }
+            const dataobject = await dwGetDataObject(key);
+            //props.data.showLoading = false;
+            if (page && page.amisScoped) {
+              page.amisScoped.updateProps({data:{showLoading:false}});
+            }
+            if (dataobject) {
+              // const name = dom.current.key;
+              const dw = dom.current.dw;
+              
+              await dw.setDataObject(dataobject);
+              dw.setTransObject(db);
+              
+  
+              if (props.$schema.onLoad) {
+                setTimeout(()=> {
+                  props.$schema.onLoad(dw);
+                },0)
+              }
+            }
+            reslove(1);
+          });
+          
+          if (page) {
+            if (!page.loadDW) {
+              page.loadDW = [];
+            } else {
+              page.loadDW.push(p);
             }
           }
         }
