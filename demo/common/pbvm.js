@@ -40,6 +40,7 @@ function attrToInt(value) {
   return value;
 }
 function addTextProperty(obj, page) {
+  let _text;
   Object.defineProperties(obj, {
     "text": {
       enumerable: true,
@@ -47,8 +48,15 @@ function addTextProperty(obj, page) {
       set: (value) => {
         const props = page.getProps();
         props.store.changeValue(obj.name, value);
+        _text = value;
+        setTimeout(() => {
+          _text = void 0;
+        }, 30);
       },
       get: () => {
+        if (_text !== void 0) {
+          return _text;
+        }
         const data = page.getProps().data;
         return data[obj.name];
       }
@@ -394,6 +402,12 @@ var pbfile_default = PBFile;
       const c = x * Math.pow(10, n);
       return Math.round(c) / Math.pow(10, n);
     },
+    abs(n) {
+      return Math.abs(n);
+    },
+    sign(n) {
+      return n === 0 ? 0 : n > 0 ? 1 : -1;
+    },
     ceiling(n) {
       return Math.ceil(n);
     },
@@ -508,7 +522,7 @@ var pbfile_default = PBFile;
     env.screenwidth = window.innerWidth;
   }
   PB.getenvironment = getenvironment;
-  PB.openwithparam = function(windowvar, parameter) {
+  PB.openwithparm = function(windowvar, parameter) {
     PB.message.stringparm = void 0;
     PB.message.doubleparm = void 0;
     PB.message.powerobjectparm = void 0;
@@ -709,6 +723,11 @@ var pbfile_default = PBFile;
       return -1;
     }
     async retrieveDW(sql, ...arg) {
+      for (let i = 0; i < arg.length; ++i) {
+        if (arg[i] instanceof Date) {
+          arg[i] = arg[i].format("yyyy-MM-dd hh:mm:ss");
+        }
+      }
       let ret = await axios.post("/h5dw/retrieve", { key: sql, args: arg, id: this.id });
       if (ret.status === 200) {
         return ret.data.data;
@@ -733,9 +752,12 @@ var pbfile_default = PBFile;
     async execute(key, args) {
       let ret = await axios.post("/embedsql", { key, args, id: this.id, autocommit: this.autocommit });
       if (ret.status === 200) {
+        this.sqlcode = ret.data.status;
         return ret.data.data;
+      } else {
+        this.sqlcode = -1;
+        return {};
       }
-      throw `execute error ${ret.status}`;
     }
   }
   root.transaction = transaction;
