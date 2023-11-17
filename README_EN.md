@@ -25,7 +25,7 @@ Convert Powerbuilder UI to web Automatically.
 * [x] Object
 * [x] Event
 * [x] Global functions
-* [ ] Embedded SQL
+* [x] Embedded SQL
 
 ## Usage:
 

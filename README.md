@@ -25,7 +25,7 @@ Convert Powerbuilder UI to web Automatically.
 * [x] 对象转换
 * [x] 事件转换
 * [x] 全局函数
-* [ ] 嵌入式SQL
+* [x] 嵌入式SQL
    
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/zh-cn/download 下载安装
