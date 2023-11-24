@@ -29,7 +29,7 @@ Convert Powerbuilder UI to web Automatically.
 
 ## Usage:
 
-1. If Node.js is not installed, you need to install it. You can download and install Node.js from https://nodejs.org/zh-cn/download.
+1. If Node.js is not installed, you need to install it. You can download and install Node.js from https://nodejs.org/en.
 2. Export the pb code, including the window and inherited objects to a directory (such as the pbcode directory in the example).
 3. Enter the command line window (cmd), enter the current directory.
 If you want to convert a single window:

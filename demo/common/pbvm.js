@@ -1448,6 +1448,12 @@ var pbfile_default = PBFile;
     p.setredraw = function(redraw) {
       return this._dw.setRedraw(...arguments);
     };
+    p.modify = function(redraw) {
+      return this._dw.modify(...arguments);
+    };
+    p.describe = function(redraw) {
+      return this._dw.describe(...arguments);
+    };
   }
   class datastore extends powerobject {
     constructor(ds) {
@@ -1623,6 +1629,18 @@ var pbfile_default = PBFile;
   class datawindowchild extends datastore {
     constructor(ds) {
       super(ds);
+    }
+    get hscrollbar() {
+      return this._dw.hScrollBar;
+    }
+    set hscrollbar(value) {
+      this._dw.hScrollBar = value;
+    }
+    get vscrollbar() {
+      return this._dw.vScrollBar;
+    }
+    set vscrollbar(value) {
+      this._dw.vScrollBar = value;
     }
   }
   root.datawindowchild = datawindowchild;
