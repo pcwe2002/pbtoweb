@@ -649,6 +649,30 @@ var pbfile_default = PBFile;
       Object.assign(this._pbprops, props);
     }
   }
+  class pbcursor extends powerobject {
+    constructor(key, args, db) {
+      this.key = key;
+      this.db = db;
+      this.args = args;
+    }
+    open() {
+      this.data = this.db.opencursor(this.key, this.args);
+      this.index = 0;
+    }
+    close() {
+      this.data = null;
+    }
+    fetch() {
+      if (this.data && this.data.length >= this.index) {
+        this.db.sqlcode = 0;
+        return this.data[this.index];
+        this.index++;
+      } else {
+        this.db.sqlcode = -1;
+      }
+    }
+  }
+  root.pbcursor = pbcursor;
   class transaction extends powerobject {
     dbms = "";
     sqlcode = 0;
@@ -656,6 +680,7 @@ var pbfile_default = PBFile;
     sqlnrows = 0;
     id = 0;
     autocommit = false;
+    cursor = {};
     async ping() {
       if (this.id <= 0) {
         clearTimeout(this._timerPing);
@@ -754,6 +779,22 @@ var pbfile_default = PBFile;
       if (ret.status === 200) {
         this.sqlcode = ret.data.status;
         return ret.data.data;
+      } else {
+        this.sqlcode = -1;
+        return {};
+      }
+    }
+    async opencursor(key, args) {
+      let ret = await axios.post("/embedsql", { key, args, id: this.id, autocommit: this.autocommit, cursor: true });
+      if (ret.status === 200) {
+        this.sqlcode = ret.data.status;
+        const data = ret.data.data;
+        if (data.length > 0) {
+          this.sqlcode = 0;
+        } else {
+          this.sqlcode = -1;
+        }
+        return data;
       } else {
         this.sqlcode = -1;
         return {};
