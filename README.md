@@ -29,15 +29,18 @@ Convert Powerbuilder UI to web Automatically.
    
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/en 下载安装
-2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）
-3. 进入命令行窗口cmd, 进入当前目录
-4. 如果要转化单独的窗口
+2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中
+3. 进入命令行窗口cmd, 输入以下命令安装pbtoweb
 ```shell
-node pbtoweb convert pbcode w_test_amis demo/page/w_test_amis.js --js
+npm i pbtoweb -g
+```   
+4. 如果要转化单独的窗口，输入命令
+```shell
+pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
 ```
 如需转换所有对象
 ```shell
-node pbtoweb convert pbcode all demo/page/index.js --js
+pbtoweb convert d:/pbcode all d:/demo/page/index.js --js
 ```
 
 窗口将转化为web窗口form.js, 参数说明如下：
@@ -65,7 +68,7 @@ d:/w_test_amis.js|导出的文件名或者文件夹（参数为all时只找文�
 ## 在amis网站上查看效果
 1. 命令行运行以下命令,会导出amis的json文件
 ```shell
-node pbtoweb convert pbcode w_test_amis d:/out.json --demo
+pbtoweb convert d:/pbcode w_test_amis d:/out.json --demo
 ```
 
 2. 打开d:/out.json并复制文本

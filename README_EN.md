@@ -31,15 +31,18 @@ Convert Powerbuilder UI to web Automatically.
 
 1. If Node.js is not installed, you need to install it. You can download and install Node.js from https://nodejs.org/en.
 2. Export the pb code, including the window and inherited objects to a directory (such as the pbcode directory in the example).
-3. Enter the command line window (cmd), enter the current directory.
-If you want to convert a single window:
+3. Open the command line window (cmd), and enter the following command to install pbtoweb.
 ```shell
-node pbtoweb convert pbcode w_test_amis demo/page/w_test_amis.js --js
+npm i pbtoweb -g
+```      
+4. If you want to convert a single window:
+```shell
+pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
 ```
 
 If you want to convert all objects:
 ```shell
-node pbtoweb convert pbcode all demo/page/index.js --js
+pbtoweb convert d:/pbcode all d:/demo/page/index.js --js
 ```
 
 The window will be converted to a web window form.js. The parameters are explained below:
@@ -65,7 +68,7 @@ d:/w_test_amis.js|The exported file name or folder (when 'all' is specified, onl
 ## View Effects on amis Website
 1. Run the following command in the command line to export the amis JSON file:
 ```shell
-node pbtoweb convert pbcode w_test_amis d:/out.json --demo
+pbtoweb convert d:/pbcode w_test_amis d:/out.json --demo
 ```
 2. Open d:/out.json and copy the text.
 3. Go to the amis website (https://aisuda.bce.baidu.com/amis/zh-CN/components/page), find an example, and click on the "Code" button.
