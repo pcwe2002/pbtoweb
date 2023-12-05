@@ -26,7 +26,7 @@ Convert Powerbuilder UI to web Automatically.
 * [x] 事件转换
 * [x] 全局函数
 * [x] 嵌入式SQL
-   
+
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/en 下载安装
 2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中
