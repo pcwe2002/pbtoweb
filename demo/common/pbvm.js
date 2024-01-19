@@ -99,7 +99,7 @@ function addVisibleProperty(obj, page) {
     }
   });
 }
-function addPositionProperty(obj, dom) {
+function addPositionProperty(obj, dom, nofocus = false) {
   function getDom() {
     if (typeof dom === "function") {
       return dom();
@@ -169,9 +169,11 @@ function addPositionProperty(obj, dom) {
     obj.x = x;
     obj.y = y;
   };
-  obj.setfocus = () => {
-    getDom().focus();
-  };
+  if (!nofocus) {
+    obj.setfocus = () => {
+      getDom().focus();
+    };
+  }
 }
 function getTypeofSign(name) {
   let key = name;
@@ -370,6 +372,9 @@ var pbfile_default = PBFile;
       return x % y;
     },
     string(value, fmt) {
+      if (value === null || value === void 0) {
+        return "";
+      }
       if (typeof fmt === "string") {
         if (value.format) {
           return value.format(fmt);
@@ -382,6 +387,9 @@ var pbfile_default = PBFile;
     },
     integer(value) {
       return parseInt(value, 10);
+    },
+    int(value) {
+      return this.integer(value);
     },
     long(value) {
       return parseInt(value, 10);
@@ -445,15 +453,15 @@ var pbfile_default = PBFile;
         f = win[key];
         if (f) {
           if (func === "pbconstructor") {
-            await f.call(obj, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
+            return await f.call(obj, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
           } else {
-            await f.call(win, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
+            return await f.call(win, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
           }
         }
       } else {
         f = obj[func];
         if (f) {
-          await f.call(obj, ...args);
+          return await f.call(obj, { ctl: obj, name: key, func }, ...args);
         }
       }
     },
@@ -463,7 +471,7 @@ var pbfile_default = PBFile;
       if (p[name]) {
         await p[name].call(this, { ctl, pro: p, name, func }, ...arg);
       } else if (ctl[func]) {
-        await ctl[func].call(ctl, ...arg);
+        await ctl[func].call(ctl, { ctl, pro: p, name, func }, ...arg);
       }
     },
     setnull() {
@@ -482,6 +490,48 @@ var pbfile_default = PBFile;
   };
   Object.assign(PB, pbdate_default);
   Object.assign(PB, pbfile_default);
+  const mouseStyle = {
+    "hourglass!": "wait",
+    "arrow!": "default",
+    "cross!": "crosshair",
+    "sizens!": "se-resize",
+    "sizenesw!": "se-resize",
+    "sizewe!": "se-resize",
+    "sizenwse!": "se-resize",
+    "uparrow!": "n-resize"
+  };
+  PB.setpointer = function(style) {
+    const key = style.toLowerCase();
+    const m = mouseStyle[key];
+    if (m) {
+      document.body.style.cursor = m;
+    } else {
+      console.warn("pbvm setpointer\u672A\u5B9E\u73B0");
+    }
+  };
+  PB.send = function(style) {
+    console.warn("pbvm send\u51FD\u6570\u4E0D\u652F\u6301");
+  };
+  PB.handle = function(style) {
+    console.warn("pbvm handle\u51FD\u6570\u4E0D\u652F\u6301");
+  };
+  function setAmisRoot(amis) {
+    if (!amis) {
+      amis = amisRequire("amis/embed");
+    }
+    let aroot = document.querySelector("#__amisroot");
+    if (!aroot) {
+      const div = document.createElement("div");
+      div.style.top = "-5000px";
+      div.style.width = "0px";
+      div.style.height = "0px";
+      div.style.position = "absolute";
+      div.id = "__amisroot";
+      document.body.appendChild(div);
+      aroot = div;
+    }
+    amis.embed(aroot, {});
+  }
   function messagebox(title, text, icon, button = "OK!") {
     const amis = amisRequire("amis");
     return new Promise((resolve) => {
@@ -536,30 +586,70 @@ var pbfile_default = PBFile;
     }
     const content = document.createElement("div");
     const w = new windowvar();
-    const d = new H5UI.Modal(w._pbprops.title, [content], w._pbprops.width);
+    let windowtype = w._pbprops.windowtype;
+    const modalOptions = {
+      width: w._pbprops.width,
+      resizeable: true,
+      maximized: false
+    };
+    if (w._pbprops.windowtype === "response!" || w._pbprops.resizeable === false) {
+      modalOptions.resizeable = false;
+    }
+    if (w._pbprops.windowstate === "maximized!") {
+      modalOptions.maximized = true;
+    }
+    modalOptions.titlebar = false;
+    if (w._pbprops.titlebar === "true" || w._pbprops.titlebar === true) {
+      modalOptions.titlebar = true;
+    }
+    const d = new H5UI.Modal(w._pbprops.title, [content], modalOptions);
     w._dialog = d;
     return new Promise((resolve) => {
       d.show((returnvalue) => {
-        resolve(returnvalue);
+        setAmisRoot();
+        PB.message.stringparm = void 0;
+        PB.message.doubleparm = void 0;
+        PB.message.powerobjectparm = void 0;
+        if (returnvalue !== void 0) {
+          const ptype2 = typeof returnvalue;
+          if (ptype2 === "string") {
+            PB.message.stringparm = returnvalue;
+          } else if (ptype2 === "number") {
+            PB.message.doubleparm = returnvalue;
+          } else {
+            PB.message.powerobjectparm = returnvalue;
+          }
+        }
+        delete windowvar.instance;
+        if (windowtype === "response!") {
+          resolve(returnvalue);
+        }
       });
+      windowvar.instance = w;
       w.show(content);
+      if (windowtype !== "response!") {
+        resolve(1);
+      }
     });
   };
   PB.closewithreturn = function(windowname, returnvalue) {
     PB.message.stringparm = void 0;
     PB.message.doubleparm = void 0;
     PB.message.powerobjectparm = void 0;
-    const ptype = typeof returnvalue;
-    if (ptype === "string") {
-      PB.message.stringparm = returnvalue;
-    } else if (ptype === "number") {
-      PB.message.doubleparm = returnvalue;
-    } else {
-      PB.message.powerobjectparm = returnvalue;
+    let instance = windowname;
+    if (typeof windowname === "function" && typeof windowname.instance === "object") {
+      instance = windowname.instance;
     }
-    windowname.close(returnvalue);
+    if (instance.onClose) {
+      instance.onClose();
+    }
+    if (instance.close) {
+      instance.close(returnvalue);
+    }
   };
   Object.assign(root, PB);
+  PB.close = PB.closewithreturn;
+  PB.open = PB.openwithparm;
   root.getTypeofSign = getTypeofSign;
   function findfunctionbyargs(data, args) {
     const func = data[args.length];
@@ -642,11 +732,26 @@ var pbfile_default = PBFile;
         PB.triggerevent(this, eventName, ...args);
       }, 0);
     }
+    async superevent(f, { ctl, pro, name, func }, ...arg) {
+      if (f) {
+        await f.call(this, { ctl, pro, name, func }, ...arg);
+      } else if (ctl[func]) {
+        await ctl[func].call(ctl, { ctl, pro, name, func }, ...arg);
+      }
+    }
     _join_props(props) {
       if (props && props.name) {
         this.name = props.name;
       }
+      let events;
+      if (this._pbprops.events && props.events) {
+        events = {};
+        Object.assign(events, this._pbprops.events, props.events);
+      }
       Object.assign(this._pbprops, props);
+      if (events) {
+        this._pbprops.events = events;
+      }
     }
   }
   class pbcursor extends powerobject {
@@ -673,6 +778,10 @@ var pbfile_default = PBFile;
     }
   }
   root.pbcursor = pbcursor;
+  const config = root.baseConfig;
+  if (config && config.api) {
+    axios.defaults.baseURL = config.api;
+  }
   class transaction extends powerobject {
     dbms = "";
     sqlcode = 0;
@@ -683,7 +792,7 @@ var pbfile_default = PBFile;
     cursor = {};
     async ping() {
       if (this.id <= 0) {
-        clearTimeout(this._timerPing);
+        clearInterval(this._timerPing);
         this._timerPing = 0;
         return 0;
       }
@@ -698,7 +807,7 @@ var pbfile_default = PBFile;
       let ret = await axios.post("/sqlca/connect", { key: this.dbms });
       if (ret.status === 200) {
         this.id = ret.data.id;
-        this._timerPing = setTimeout(() => {
+        this._timerPing = setInterval(() => {
           this.ping();
         }, 3e4);
       } else {
@@ -713,7 +822,7 @@ var pbfile_default = PBFile;
       let ret = await axios.post("/sqlca/disconnect", { id: this.id });
       if (ret.status === 200) {
         this.id = 0;
-        clearTimeout(this._timerPing);
+        clearInterval(this._timerPing);
         this._timerPing = 0;
       }
     }
@@ -774,18 +883,36 @@ var pbfile_default = PBFile;
       }
       throw `syntaxFromSQL error ${ret.status}`;
     }
-    async execute(key, args) {
-      let ret = await axios.post("/embedsql", { key, args, id: this.id, autocommit: this.autocommit });
+    async query(key, args) {
+      let ret = await axios.post("/queryembedsql", { key, args, id: this.id });
       if (ret.status === 200) {
-        this.sqlcode = ret.data.status;
+        this.sqlcode = ret.data.status === 0 ? 0 : -1;
+        if (this.sqlcode !== 0) {
+          this.sqlerrtext = ret.data.msg;
+          return [];
+        }
         return ret.data.data;
       } else {
         this.sqlcode = -1;
-        return {};
+        return [];
+      }
+    }
+    async execute(key, args) {
+      let ret = await axios.post("/embedsql", { key, args, id: this.id });
+      if (ret.status === 200) {
+        this.sqlcode = ret.data.status === 0 ? 0 : -1;
+        if (this.sqlcode !== 0) {
+          this.sqlerrtext = ret.data.msg;
+          return -1;
+        }
+        return ret.data.data;
+      } else {
+        this.sqlcode = -1;
+        return -1;
       }
     }
     async opencursor(key, args) {
-      let ret = await axios.post("/embedsql", { key, args, id: this.id, autocommit: this.autocommit, cursor: true });
+      let ret = await axios.post("/queryembedsql", { key, args, id: this.id, cursor: true });
       if (ret.status === 200) {
         this.sqlcode = ret.data.status;
         const data = ret.data.data;
@@ -797,7 +924,7 @@ var pbfile_default = PBFile;
         return data;
       } else {
         this.sqlcode = -1;
-        return {};
+        return [];
       }
     }
   }
@@ -879,6 +1006,9 @@ var pbfile_default = PBFile;
       if (attr.textsize) {
         actl.style.fontSize = attr.textsize + "pt";
       }
+      if (attr.bringtotop === "true") {
+        actl.style.zIndex = 100;
+      }
       if (attr.visible === false) {
         actl.style.visibility = "hidden";
       }
@@ -886,6 +1016,14 @@ var pbfile_default = PBFile;
         options.page.data.disabled[attr.name] = true;
       }
       actl.tpl = `${this._className}:${attr.name}`;
+      if (options.win) {
+        const attrKeys = Object.keys(attr);
+        for (const key of attrKeys) {
+          if (this.hasOwnProperty(key)) {
+            this[key] = attr[key];
+          }
+        }
+      }
       if (addprop && options.win) {
         let control = null;
         let win = options.win;
@@ -901,6 +1039,16 @@ var pbfile_default = PBFile;
         addTextProperty(this, options.win);
         addEnabledProperty(this, options.win);
         options.win[this.name] = this;
+        const inst2 = this;
+        this.setvalues = (key, data) => {
+          const props = options.win.getProps();
+          props.store.changeValue(`${inst2.name}_values.${key}`, data);
+        };
+        this.doaction = (action) => {
+          const props = options.win.getProps();
+          let ctls = options.win.amisScoped.getComponents();
+          ctls[0].handleAction(void 0, action, props.store.data, true);
+        };
       }
       if (options.objects) {
         options.objects.push(this);
@@ -955,6 +1103,14 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "tabs";
       actl.mountOnEnter = false;
+      actl.activeKey = "${" + attr.name + "_values.activeKey|toInt}";
+      if (attr.selectedtab !== void 0) {
+        let index = parseInt(attr.selectedtab);
+        if (index > 0)
+          index = index - 1;
+        options.page.data[attr.name + "_values.activeKey"] = index;
+        this.selectedtab = index + 1;
+      }
       const childs = actl.tabs = [];
       for (const c of this.control) {
         let ui = c.toUI(options);
@@ -971,7 +1127,9 @@ var pbfile_default = PBFile;
               {
                 "actionType": "custom",
                 "script": (ev, ev1, event, ev3) => {
-                  inst2.postevent("selectionchanged", ev.activeKey + 1, event.data.value + 1);
+                  inst2.selectedtab = event.data.value;
+                  inst2.setvalues("activeKey", event.data.value - 1);
+                  inst2.postevent("selectionchanged", ev.activeKey + 1, event.data.value);
                 }
               }
             ]
@@ -979,6 +1137,14 @@ var pbfile_default = PBFile;
         };
       }
       return actl;
+    }
+    selecttab(index) {
+      if (index > 0 && index <= this.control.length) {
+        let oldIndex = this.selectedtab;
+        this.selectedtab = index;
+        this.setvalues("activeKey", index - 1);
+        this.postevent("selectionchanged", oldIndex, index);
+      }
     }
   }
   class pbwindow extends windowobject {
@@ -1047,7 +1213,8 @@ var pbfile_default = PBFile;
           "show": true,
           "overlay": true,
           "size": "lg",
-          "visibleOn": "${showLoading}"
+          "visibleOn": "${showLoading}",
+          "tip": "\u52A0\u8F7D\u4E2D..."
         }],
         events: []
       };
@@ -1069,7 +1236,10 @@ var pbfile_default = PBFile;
           }
           for (let index = objects.length - 1; index >= 0; index--) {
             const obj = objects[index];
-            obj.triggerevent("pbconstructor");
+            if (obj["pbattributes"]) {
+              obj["pbattributes"]();
+            }
+            await obj.triggerevent("pbconstructor");
           }
           this.onOpen();
         }
@@ -1077,11 +1247,21 @@ var pbfile_default = PBFile;
       page.inst = this;
       this.root = root2;
       const amis = amisRequire("amis/embed");
-      const config = window.baseConfig || parent.baseConfig;
+      const config2 = window.baseConfig || parent.baseConfig;
       this.amisLib = amisRequire("amis");
-      this.amisScoped = amis.embed(this.root, amisJson, { data: { apiurl: config.api, page: () => {
+      this.amisScoped = amis.embed(this.root, amisJson, { data: { apiurl: config2.api, page: () => {
         return page;
       } } });
+      setAmisRoot(amis);
+    }
+    showWaitting(tip) {
+      const props = this.getProps();
+      props.store.changeValue("showLoading", true);
+      props.store.changeValue("spinner_tip", tip);
+    }
+    closeWaitting() {
+      const props = this.getProps();
+      props.store.changeValue("showLoading", false);
     }
     getProps() {
       let ctls = this.amisScoped.getComponents();
@@ -1381,6 +1561,9 @@ var pbfile_default = PBFile;
         return null;
       }
     };
+    p.getchilddw = async function() {
+      return await this._dw.getChildDW();
+    };
     p.rowcount = function() {
       return this._dw.rowCount();
     };
@@ -1388,13 +1571,22 @@ var pbfile_default = PBFile;
       return this._dw.setItem(...arguments);
     };
     p.getitem = function(row, column = null) {
-      return this._dw.setItem(...arguments);
+      return this._dw.getItem(...arguments);
     };
     p.setitemstatus = function(row, column, dwbuffer, status) {
       return this._dw.setItemsSatus(...arguments);
     };
     p.getitemstatus = function(row, column, dwbuffer) {
-      return this._dw.getItemStatus(...arguments);
+      const status = this._dw.getItemStatus(...arguments);
+      if (status === 1) {
+        return "DataModified!";
+      } else if (status === 2) {
+        return "New!";
+      } else if (status === 3) {
+        return "NewModified!";
+      } else {
+        return "NotModified!";
+      }
     };
     p.insertrow = function(row) {
       return this._dw.insertRow(...arguments);
@@ -1403,7 +1595,7 @@ var pbfile_default = PBFile;
       return this._dw.deleteRow(...arguments);
     };
     p.retrieve = async function(...args) {
-      return this._dw.retrieve(...arguments);
+      return await this._dw.retrieve(...arguments);
     };
     p.update = function(accept = true, resetflag = true) {
       return this._dw.update(...arguments);
@@ -1414,11 +1606,26 @@ var pbfile_default = PBFile;
     p.reset = function() {
       return this._dw.reset();
     };
+    p.setcolumn = function(name) {
+      return this._dw.setColumn(name);
+    };
+    p.getcolumnname = function(name) {
+      return this._dw.getColumnName();
+    };
+    p.getcolumn = function(name) {
+      return this._dw.getColumn();
+    };
     p.setrow = function(row) {
       return this._dw.setRow(...arguments);
     };
     p.scrolltorow = function(row) {
       return this._dw.scrollToRow(...arguments);
+    };
+    p.scrollpriorrow = function(row) {
+      return this._dw.scrollPriorRow(row);
+    };
+    p.scrollnextrow = function(row) {
+      return this._dw.scrollNextRow(row);
     };
     p.getrow = function() {
       return this._dw.getRow(...arguments);
@@ -1486,14 +1693,23 @@ var pbfile_default = PBFile;
     p.scrolltorow = function(row) {
       return this._dw.scrollToRow(...arguments);
     };
-    p.setredraw = function(redraw) {
+    p.setredraw = function() {
       return this._dw.setRedraw(...arguments);
     };
-    p.modify = function(redraw) {
+    p.modify = function() {
       return this._dw.modify(...arguments);
     };
-    p.describe = function(redraw) {
+    p.describe = function() {
       return this._dw.describe(...arguments);
+    };
+    p.setoption = function() {
+      return this._dw.setOption(...arguments);
+    };
+    p.setfocus = function() {
+      return this._dw.setFocus(...arguments);
+    };
+    p.setdataobject = async function(value) {
+      return await this._dw.setDataObject(value);
     };
   }
   class datastore extends powerobject {
@@ -1511,15 +1727,28 @@ var pbfile_default = PBFile;
     set dataobject(value) {
       this._dw.dataobject = value;
     }
+    get object() {
+      return this._dw.object;
+    }
   }
   addDWProperties(datastore);
   class datawindow extends windowobject {
     toUI(options) {
-      let actl = super.toUI(options);
+      let actl = super.toUI(options, false);
       const attr = this._pbprops;
       delete actl.tpl;
       actl.type = "datawindow";
       actl.dataObjectURI = attr.dataobject;
+      if (attr.hscrollbar === false) {
+        if (!actl.option)
+          actl.option = {};
+        Object.assign(actl.option, { showHScrollBar: false });
+      }
+      if (attr.vscrollbar === false) {
+        if (!actl.option)
+          actl.option = {};
+        Object.assign(actl.option, { showVScrollBar: false });
+      }
       if (options.js && attr.events) {
         const dwEvent = {
           "clicked": "onClicked",
@@ -1529,15 +1758,35 @@ var pbfile_default = PBFile;
           "buttonclicked": "onButtonClicked",
           "dropdownselected": "onDropDownSelected",
           "doubleclicked": "onDoubleClicked",
-          "toolbarchanged": "onToolbarChanged"
+          "toolbarchanged": "onToolbarChanged",
+          "editchanged": "onEditChanged",
+          "losefocus": "onLoseFocus"
         };
+        const dwPBEvent = { "pbm_dwnprocessenter": "onEnter", "pbm_dwnkey": "onKeyDown" };
         for (const key in attr.events) {
           const evName = dwEvent[key];
           if (evName) {
             const inst2 = this;
             actl[evName] = (...args) => {
-              inst2.triggerevent(key, ...args);
+              const avs = args.slice(1);
+              avs.push(args[0]);
+              inst2.triggerevent(key, ...avs);
             };
+          } else {
+            const evPBName = dwPBEvent[key];
+            if (evPBName) {
+              const inst2 = this;
+              actl[evPBName] = (...args) => {
+                const avs = args.slice(1);
+                avs.push(args[0]);
+                const func = attr.events[key];
+                if (func) {
+                  inst2.triggerevent(func, ...avs);
+                } else {
+                  inst2.triggerevent(key, ...avs);
+                }
+              };
+            }
           }
         }
       }
@@ -1546,7 +1795,7 @@ var pbfile_default = PBFile;
         this._dataobject = attr.dataobject;
         addPositionProperty(this, () => {
           return this._dw._.targetEl;
-        });
+        }, true);
       }
       return actl;
     }
@@ -1562,6 +1811,18 @@ var pbfile_default = PBFile;
     }
     get object() {
       return this._dw.object;
+    }
+    get hscrollbar() {
+      return this._dw.hScrollBar;
+    }
+    set hscrollbar(value) {
+      this._dw.hScrollBar = value;
+    }
+    get vscrollbar() {
+      return this._dw.vScrollBar;
+    }
+    set vscrollbar(value) {
+      this._dw.vScrollBar = value;
     }
     // settransobject(db) {
     //   return this._dw.setTransObject();
@@ -1671,19 +1932,55 @@ var pbfile_default = PBFile;
     constructor(ds) {
       super(ds);
     }
-    get hscrollbar() {
-      return this._dw.hScrollBar;
+  }
+  class timing extends nonvisualobject {
+    start(interval) {
+      this.stop();
+      this._timer = setTimeout(() => {
+        this.postevent("timer");
+      }, interval * 1e3);
     }
-    set hscrollbar(value) {
-      this._dw.hScrollBar = value;
-    }
-    get vscrollbar() {
-      return this._dw.vScrollBar;
-    }
-    set vscrollbar(value) {
-      this._dw.vScrollBar = value;
+    stop() {
+      if (this._timer) {
+        clearTimeout(this._timer);
+      }
+      this._timer = void 0;
     }
   }
+  root.timing = timing;
+  class nav extends windowobject {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      delete actl.tpl;
+      actl.type = "nav";
+      actl.stacked = false;
+      options.page.data[attr.name] = {
+        "source": attr.links
+      };
+      actl.source = `\${${attr.name}_values.source}`;
+      if (options.js && attr.events && attr.events["clicked"]) {
+        const inst2 = this;
+        actl.onEvent = {
+          "click": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": (ev, ev1, event, ev3) => {
+                  inst2.triggerevent("clicked", event.data.item);
+                }
+              }
+            ]
+          }
+        };
+      }
+      return actl;
+    }
+    setlink(data) {
+      this.setvalues("source", data);
+    }
+  }
+  root.nav = nav;
   root.datawindowchild = datawindowchild;
   root.powerobject = powerobject;
   root.nonvisualobject = nonvisualobject;

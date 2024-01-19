@@ -17,6 +17,7 @@ body {
 .satreport-sheet {
   position: relative;
   overflow: hidden;
+  outline: none;
 }
 .satreport-table {
   vertical-align: bottom;
@@ -125,7 +126,7 @@ body {
 }
 .satreport-dropdown .satreport-dropdown-content {
   position: absolute;
-  z-index: 200;
+  z-index: 1200;
   background: #fff;
   box-shadow: 1px 2px 5px 2px rgba(51, 51, 51, 0.15);
 }
@@ -220,6 +221,7 @@ body {
   left: 0;
   top: 0;
   z-index: 10;
+  outline: none;
 }
 .satreport-overlayer .satreport-overlayer-content {
   position: absolute;
@@ -397,7 +399,7 @@ body {
   position: absolute;
   box-shadow: 1px 2px 5px 2px rgba(51, 51, 51, 0.15);
   background: #fff;
-  z-index: 100;
+  z-index: 1200;
   width: 260px;
   pointer-events: auto;
   overflow: auto;
@@ -827,7 +829,7 @@ body {
   animation-duration: 0.5s;
   transition: background-color 0.5s linear;
   user-select: none;
-  z-index: 2000;
+  z-index: 1200;
 }
 .satreport-dimmer.active {
   display: block;
@@ -855,7 +857,7 @@ form fieldset select {
 .satreport-toast {
   font-size: 13px;
   position: fixed;
-  z-index: 1001;
+  z-index: 100;
   text-align: left;
   line-height: 1.25em;
   min-width: 360px;

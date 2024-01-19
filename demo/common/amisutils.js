@@ -2,7 +2,7 @@
 //查找子数据窗口
 if (!window.dwGetDataObject) {
   window.dwGetDataObject =  async (key) => {
-    let ret = await axios.get(`/h5dw/dataobject?key=` + key);
+    let ret = await axios.get(`/h5dw/dataobject/` + key);
     if (ret.status === 200) {
       const { data } = ret;
       if (data.status === 0) {
@@ -292,6 +292,9 @@ if (!window.getQueryString) {
 
 (function () {
 
+  if (window._pbdwdefine) { return; }
+  window._pbdwdefine = true;
+
   const config = window.baseConfig || parent.baseConfig;
   axios.defaults.baseURL = config.api;
 
@@ -335,7 +338,7 @@ if (!window.getQueryString) {
     }
   };
 
-	window.sqlca = db;
+	// window.sqlca = db;
 	
   let index = 0;
   // window.enableAMISDebug = true;
@@ -412,7 +415,7 @@ if (!window.getQueryString) {
 
           const dwEvent = ['Clicked','ItemChanged','ItemFocusChanged',
             'RowFocusChanged','ButtonClicked', 'DropDownSelected', 'DoubleClicked',
-            'ToolbarChanged'];
+            'ToolbarChanged','EditChanged', 'Enter', 'KeyDown', 'LoseFocus'];
           for (let i = 0; i < dwEvent.length; ++i) {
             const onEvent = 'on' + dwEvent[i];
             if (props.$schema[onEvent]) {
@@ -497,7 +500,7 @@ if (!window.getQueryString) {
           
           if (page) {
             if (!page.loadDW) {
-              page.loadDW = [];
+              page.loadDW = [p];
             } else {
               page.loadDW.push(p);
             }
@@ -596,7 +599,7 @@ if (!window.getQueryString) {
               erd.listenTo(page.root, (evt) => {
                 if (erd.rt) { clearTimeout(this.rt); }
                 if (erd.lastHeight !== targetEl.clientHeight ||
-                  erd.lastWidth !== targetEl.clientWidth) {
+                  erd.lastWidth !== targetEl.clientWidth || (new Date() - erd.lastTime > 1000)) {
                   // console.log(this.key, this.lastHeight, targetEl.clientHeight, this.lastWidth, targetEl.clientWidth);
                   erd.rt = setTimeout(() => {
                     //this.reload();
@@ -610,7 +613,8 @@ if (!window.getQueryString) {
 
                     erd.lastHeight = targetEl.clientHeight;
                     erd.lastWidth = targetEl.clientWidth;
-                    delete this.rt;
+                    erd.lastTime = new Date();
+                    delete erd.rt;
                   }, 10);
                 }
               });
