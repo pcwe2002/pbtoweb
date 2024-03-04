@@ -29,11 +29,11 @@ Convert Powerbuilder UI to web Automatically.
 
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/en 下载安装
-2. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中
-3. 进入命令行窗口cmd, 输入以下命令安装pbtoweb
+2. 进入命令行窗口cmd, 输入以下命令安装pbtoweb
 ```shell
 npm i pbtoweb -g
 ```   
+3. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，pbldump在安装的pbtoweb目录中，目录可以通过命令`npm config get prefix` 查看
 4. 如果要转化单独的窗口，输入命令
 ```shell
 pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js

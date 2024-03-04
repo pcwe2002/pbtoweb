@@ -314,6 +314,22 @@ body {
   line-height: 22px;
   margin: 0;
 }
+.satreport-editor .satreport-editor-area input {
+  box-sizing: content-box;
+  border: none;
+  padding: 0 3px;
+  outline: none;
+  resize: none;
+  text-align: start;
+  overflow-y: hidden;
+  font: 400 13px Arial, 'Lato', 'Source Sans Pro', Roboto, Helvetica, sans-serif;
+  color: inherit;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 22px;
+  margin: 0;
+  display: none;
+}
 .satreport-editor .satreport-editor-area .textline {
   overflow: hidden;
   visibility: hidden;

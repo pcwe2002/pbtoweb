@@ -261,7 +261,9 @@ var PBDate = {
   },
   daysafter(date1, date2) {
     if (date1 && date2) {
-      return (date2.getTime() - date1.getTime()) / (1e3 * 60 * 60 * 24);
+      const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+      const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+      return parseInt((d2.getTime() - d1.getTime()) / (1e3 * 60 * 60 * 24));
     } else {
       return null;
     }
@@ -377,6 +379,13 @@ var pbfile_default = PBFile;
       }
       if (typeof fmt === "string") {
         if (value.format) {
+          if (value instanceof Date) {
+            if (fmt.indexOf("yymm") !== -1) {
+              fmt = fmt.replace("yymm", "yyMM");
+            } else if (fmt.indexOf("yy-mm") !== -1) {
+              fmt = fmt.replace("yy-mm", "yy-MM");
+            }
+          }
           return value.format(fmt);
         } else {
           return `${value}`;
@@ -1015,7 +1024,11 @@ var pbfile_default = PBFile;
       if (attr.enabled === false) {
         options.page.data.disabled[attr.name] = true;
       }
-      actl.tpl = `${this._className}:${attr.name}`;
+      if (attr.html) {
+        actl.tpl = attr.html;
+      } else {
+        actl.tpl = `${this._className}:${attr.name}`;
+      }
       if (options.win) {
         const attrKeys = Object.keys(attr);
         for (const key of attrKeys) {
@@ -1039,10 +1052,10 @@ var pbfile_default = PBFile;
         addTextProperty(this, options.win);
         addEnabledProperty(this, options.win);
         options.win[this.name] = this;
-        const inst2 = this;
+        const inst = this;
         this.setvalues = (key, data) => {
           const props = options.win.getProps();
-          props.store.changeValue(`${inst2.name}_values.${key}`, data);
+          props.store.changeValue(`${inst.name}_values.${key}`, data);
         };
         this.doaction = (action) => {
           const props = options.win.getProps();
@@ -1088,10 +1101,14 @@ var pbfile_default = PBFile;
         }
       } else {
         actl.type = "wrapper";
+        actl.style.padding = 0;
         childs = actl.body = [];
       }
       for (const c of this.control) {
         childs.unshift(c.toUI(options));
+      }
+      if (attr.schema) {
+        childs.push(attr.schema);
       }
       return actl;
     }
@@ -1120,16 +1137,16 @@ var pbfile_default = PBFile;
         childs.push(ui);
       }
       if (options.js && attr.events && attr.events["selectionchanged"]) {
-        const inst2 = this;
+        const inst = this;
         actl.onEvent = {
           "change": {
             "actions": [
               {
                 "actionType": "custom",
                 "script": (ev, ev1, event, ev3) => {
-                  inst2.selectedtab = event.data.value;
-                  inst2.setvalues("activeKey", event.data.value - 1);
-                  inst2.postevent("selectionchanged", ev.activeKey + 1, event.data.value);
+                  inst.selectedtab = event.data.value;
+                  inst.setvalues("activeKey", event.data.value - 1);
+                  inst.postevent("selectionchanged", ev.activeKey + 1, event.data.value);
                 }
               }
             ]
@@ -1194,6 +1211,9 @@ var pbfile_default = PBFile;
       }
       if (options.js) {
         childs.push({ "type": "loaddetector" });
+      }
+      if (options.page && attr.data) {
+        Object.assign(options.page.data, attr.data);
       }
       return actl;
     }
@@ -1288,14 +1308,14 @@ var pbfile_default = PBFile;
       actl.tpl = "${" + attr.name + "}";
       options.page.data[attr.name] = attr.text;
       if (options.js && attr.events && attr.events["clicked"]) {
-        const inst2 = this;
+        const inst = this;
         actl.onEvent = {
           "click": {
             "actions": [
               {
                 "actionType": "custom",
                 "script": (e, props) => {
-                  inst2.triggerevent("clicked", e, props);
+                  inst.triggerevent("clicked", e, props);
                 }
               }
             ]
@@ -1311,18 +1331,26 @@ var pbfile_default = PBFile;
       const attr = this._pbprops;
       let actl = super.toUI(options);
       delete actl.tpl;
-      actl.type = "input-text";
+      if (attr.password) {
+        actl.type = "input-password";
+      } else {
+        actl.type = "input-text";
+      }
       actl.value = attr.text;
       actl.inputControlClassName = `${this.name}`;
+      if (attr.placeholder) {
+        actl.placeholder = attr.placeholder;
+      }
       options.css[`.${attr.name}`] = { "height": attr.height + "px!important", "padding": "0px 5px!important" };
       if (options.js && attr.events && attr.events["modified"]) {
+        const inst = this;
         actl.onEvent = {
           "change": {
             "actions": [
               {
                 "actionType": "custom",
-                "script": () => {
-                  inst.postevent("modified");
+                "script": (context, doaction, event, ev3) => {
+                  inst.postevent("modified", event.data.value);
                 }
               }
             ]
@@ -1341,13 +1369,14 @@ var pbfile_default = PBFile;
       actl.value = attr.text;
       options.css[`.${attr.name} textarea`] = { "max-height": `${attr.height}px`, "min-height": `${attr.height}px`, "resize": "none" };
       if (options.js && attr.events && attr.events["modified"]) {
+        const inst = this;
         actl.onEvent = {
           "change": {
             "actions": [
               {
                 "actionType": "custom",
-                "script": () => {
-                  inst.postevent("modified");
+                "script": (context, doaction, event, ev3) => {
+                  inst.postevent("modified", event.data.value);
                 }
               }
             ]
@@ -1379,14 +1408,14 @@ var pbfile_default = PBFile;
         }
       }
       if (options.js && attr.events && attr.events["modified"]) {
-        const inst2 = this;
+        const inst = this;
         actl.onEvent = {
           "change": {
             "actions": [
               {
                 "actionType": "custom",
                 "script": () => {
-                  inst2.postevent("modified");
+                  inst.postevent("modified");
                 }
               }
             ]
@@ -1407,9 +1436,9 @@ var pbfile_default = PBFile;
       actl.type = "button";
       actl.label = attr.text;
       if (options.js && attr.events && attr.events["clicked"]) {
-        const inst2 = this;
+        const inst = this;
         actl.onClick = (e, props) => {
-          inst2.triggerevent("clicked", e, props);
+          inst.triggerevent("clicked", e, props);
         };
       }
       return actl;
@@ -1461,7 +1490,7 @@ var pbfile_default = PBFile;
       let actl = super.toUI(options);
       delete actl.tpl;
       actl.type = "html";
-      actl.html = `<fieldset style="border: 1px solid #DCDFE6;position: relative;height:${attr.height}px"><legend>${attr.text}</legend></fieldset>`;
+      actl.html = `<fieldset style="border: 1px solid #DCDFE6;position: relative;height:calc(100% - 2px)"><legend>${attr.text}</legend></fieldset>`;
       return actl;
     }
   }
@@ -1766,24 +1795,24 @@ var pbfile_default = PBFile;
         for (const key in attr.events) {
           const evName = dwEvent[key];
           if (evName) {
-            const inst2 = this;
+            const inst = this;
             actl[evName] = (...args) => {
               const avs = args.slice(1);
               avs.push(args[0]);
-              inst2.triggerevent(key, ...avs);
+              inst.triggerevent(key, ...avs);
             };
           } else {
             const evPBName = dwPBEvent[key];
             if (evPBName) {
-              const inst2 = this;
+              const inst = this;
               actl[evPBName] = (...args) => {
                 const avs = args.slice(1);
                 avs.push(args[0]);
                 const func = attr.events[key];
                 if (func) {
-                  inst2.triggerevent(func, ...avs);
+                  inst.triggerevent(func, ...avs);
                 } else {
-                  inst2.triggerevent(key, ...avs);
+                  inst.triggerevent(key, ...avs);
                 }
               };
             }
@@ -1960,14 +1989,14 @@ var pbfile_default = PBFile;
       };
       actl.source = `\${${attr.name}_values.source}`;
       if (options.js && attr.events && attr.events["clicked"]) {
-        const inst2 = this;
+        const inst = this;
         actl.onEvent = {
           "click": {
             "actions": [
               {
                 "actionType": "custom",
                 "script": (ev, ev1, event, ev3) => {
-                  inst2.triggerevent("clicked", event.data.item);
+                  inst.triggerevent("clicked", event.data.item);
                 }
               }
             ]
