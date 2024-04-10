@@ -38,6 +38,10 @@ npm i pbtoweb -g
 ```shell
 pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
 ```
+如需转换该窗口和关联对象
+```shell
+pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js --r
+```
 如需转换所有对象
 ```shell
 pbtoweb convert d:/pbcode all d:/demo/page/index.js --js

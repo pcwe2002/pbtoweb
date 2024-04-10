@@ -47,7 +47,7 @@ function addTextProperty(obj, page) {
       configurable: true,
       set: (value) => {
         const props = page.getProps();
-        props.store.changeValue(obj.name, value);
+        props.store.changeValue(obj._id, value);
         _text = value;
         setTimeout(() => {
           _text = void 0;
@@ -58,7 +58,7 @@ function addTextProperty(obj, page) {
           return _text;
         }
         const data = page.getProps().data;
-        return data[obj.name];
+        return data[obj._id];
       }
     }
   });
@@ -70,11 +70,11 @@ function addEnabledProperty(obj, page) {
       configurable: true,
       set: (value) => {
         const props = page.getProps();
-        props.store.changeValue(`disabled.${obj.name}`, !value);
+        props.store.changeValue(`disabled.${obj._id}`, !value);
       },
       get: () => {
         const data = page.getProps().data;
-        const key = obj.name;
+        const key = obj._id;
         const disabled = data.disabled[key];
         return !disabled;
       }
@@ -88,11 +88,11 @@ function addVisibleProperty(obj, page) {
       configurable: true,
       set: (value) => {
         const props = page.getProps();
-        props.store.changeValue(`${obj.name}_invisible`, !value);
+        props.store.changeValue(`${obj._id}_invisible`, !value);
       },
       get: () => {
         const data = page.getProps().data;
-        const key = obj.name + "_invisible";
+        const key = obj._id + "_invisible";
         const invisible = data[key];
         return !invisible;
       }
@@ -159,6 +159,39 @@ function addPositionProperty(obj, dom, nofocus = false) {
         const v = getDom().style["visibility"];
         return v !== "hidden";
       }
+    },
+    "backcolor": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        getDom().style["background"] = value;
+      },
+      get: () => {
+        const v = getDom().style["background"];
+        return v;
+      }
+    },
+    "background": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        getDom().style["background"] = value;
+      },
+      get: () => {
+        const v = getDom().style["background"];
+        return v;
+      }
+    },
+    "textcolor": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        getDom().style["color"] = value;
+      },
+      get: () => {
+        const v = getDom().style["color"];
+        return v;
+      }
     }
   });
   obj.resize = function(width, height) {
@@ -205,6 +238,28 @@ function getTypeofSign(name) {
       return "A";
   }
   return null;
+}
+function addPlaceholderProperty(obj, actl, options) {
+  actl.placeholder = `\${${obj._id}_values.placeholder}`;
+  const attr = obj._pbprops;
+  if (attr.placeholder) {
+    options.page.data[this._id + "_values.placeholder"] = attr.placeholder;
+  }
+  Object.defineProperties(obj, {
+    "placeholder": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        const attr2 = obj._pbprops;
+        attr2.placeholder = value;
+        obj.setvalues("placeholder", value);
+      },
+      get: () => {
+        const attr2 = obj._pbprops;
+        return attr2.placeholder;
+      }
+    }
+  });
 }
 
 // pbvm/pbdate.js
@@ -390,6 +445,9 @@ var pbfile_default = PBFile;
         } else {
           return `${value}`;
         }
+      } else if (value instanceof Uint8Array) {
+        const de = new TextDecoder();
+        return de.decode(value);
       } else {
         return `${value}`;
       }
@@ -414,6 +472,24 @@ var pbfile_default = PBFile;
     },
     number(value) {
       return Number(value);
+    },
+    blob(value) {
+      if (typeof value === "string") {
+        let en = new TextEncoder();
+        return en.encode(value);
+      } else if (value instanceof Uint8Array) {
+        return value;
+      } else {
+        return null;
+      }
+    },
+    isnumber(value) {
+      if (typeof value === "string") {
+        if (value.trim() === "") {
+          return false;
+        }
+      }
+      return isNaN(Number(value));
     },
     round(x, n = 0) {
       const c = x * Math.pow(10, n);
@@ -448,6 +524,26 @@ var pbfile_default = PBFile;
     },
     pbyeild() {
     },
+    hex(d) {
+      let str = d.toString(16);
+      if (str.length % 2 === 1) {
+        str = `0${str}`;
+      }
+      return str;
+    },
+    pbcolor(value) {
+      const r = value & 255;
+      const g = value >> 8 & 255;
+      const b = value >> 16 & 255;
+      const color = `#${hex(r)}${hex(g)}${hex(b)}`;
+      return color;
+    },
+    rgb(r, g, b) {
+      return `#${hex(r)}${hex(g)}${hex(b)}`;
+    },
+    randomize(n) {
+      return n;
+    },
     async triggerevent(obj, func, ...args) {
       let key = null;
       if (obj._pbprops && obj._pbprops.events) {
@@ -461,11 +557,7 @@ var pbfile_default = PBFile;
       if (win && win[key]) {
         f = win[key];
         if (f) {
-          if (func === "pbconstructor") {
-            return await f.call(obj, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
-          } else {
-            return await f.call(win, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
-          }
+          return await f.call(win, { ctl: obj, pro: win.__proto__, name: key, func }, ...args);
         }
       } else {
         f = obj[func];
@@ -495,6 +587,22 @@ var pbfile_default = PBFile;
       } else {
         return attrToPixels(units, false, 0);
       }
+    },
+    base64Encode(data) {
+      const maxargs = 4096;
+      const strs = [];
+      for (var i = 0, l = data.length; i < l; i += maxargs) {
+        strs.push(String.fromCharCode.apply(null, data.subarray(i, i + maxargs)));
+      }
+      return window.btoa(strs.join(""));
+    },
+    base64Decode(base64Str) {
+      let binaryString = window.atob(base64Str);
+      let uint8Array = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+      }
+      return uint8Array;
     }
   };
   Object.assign(PB, pbdate_default);
@@ -541,7 +649,7 @@ var pbfile_default = PBFile;
     }
     amis.embed(aroot, {});
   }
-  function messagebox(title, text, icon, button = "OK!") {
+  function messagebox(title, text, icon2, button = "OK!") {
     const amis = amisRequire("amis");
     return new Promise((resolve) => {
       if (button === "OK!") {
@@ -741,12 +849,19 @@ var pbfile_default = PBFile;
         PB.triggerevent(this, eventName, ...args);
       }, 0);
     }
-    async superevent(f, { ctl, pro, name, func }, ...arg) {
-      if (f) {
-        await f.call(this, { ctl, pro, name, func }, ...arg);
-      } else if (ctl[func]) {
-        await ctl[func].call(ctl, { ctl, pro, name, func }, ...arg);
+    async superevent(f, ...arg) {
+      if (arg.length > 0) {
+        const { ctl, pro, name, func } = arg[0];
+        if (ctl) {
+          if (f) {
+            await f.call(this, ...arg);
+          } else if (ctl[func]) {
+            await ctl[func].call(ctl, ...arg);
+          }
+          return;
+        }
       }
+      await f.call(this, ...arg);
     }
     _join_props(props) {
       if (props && props.name) {
@@ -761,6 +876,10 @@ var pbfile_default = PBFile;
       if (events) {
         this._pbprops.events = events;
       }
+    }
+    pbconstructor() {
+    }
+    destructor() {
     }
   }
   class pbcursor extends powerobject {
@@ -894,11 +1013,14 @@ var pbfile_default = PBFile;
     }
     async query(key, args) {
       let ret = await axios.post("/queryembedsql", { key, args, id: this.id });
+      this.sqlnrows = 0;
       if (ret.status === 200) {
         this.sqlcode = ret.data.status === 0 ? 0 : -1;
         if (this.sqlcode !== 0) {
           this.sqlerrtext = ret.data.msg;
           return [];
+        } else {
+          this.sqlnrows = ret.data.data.length;
         }
         return ret.data.data;
       } else {
@@ -906,10 +1028,20 @@ var pbfile_default = PBFile;
         return [];
       }
     }
+    async queryblob(key, args) {
+      let r = await this.query(key, args);
+      if (r.length > 0) {
+        let a = base64Decode(r[0]);
+        r[0] = a;
+      }
+      return r;
+    }
     async execute(key, args) {
       let ret = await axios.post("/embedsql", { key, args, id: this.id });
+      this.sqlnrows = 0;
       if (ret.status === 200) {
         this.sqlcode = ret.data.status === 0 ? 0 : -1;
+        this.sqlnrows = ret.data.data;
         if (this.sqlcode !== 0) {
           this.sqlerrtext = ret.data.msg;
           return -1;
@@ -947,13 +1079,8 @@ var pbfile_default = PBFile;
     }
     destroy() {
     }
-    pbconstructor() {
-    }
-    destructor() {
-    }
   }
   class windowobject extends powerobject {
-    tag;
     visible;
     name;
     width = 800;
@@ -982,6 +1109,14 @@ var pbfile_default = PBFile;
         this.create();
       }
     }
+    get tag() {
+      const attr = this._pbprops;
+      return attr.tag;
+    }
+    set tag(value) {
+      const attr = this._pbprops;
+      attr.tag = value;
+    }
     move(x, y) {
     }
     resize(w, h) {
@@ -996,11 +1131,17 @@ var pbfile_default = PBFile;
     }
     toUI(options, addprop = true) {
       const attr = this._pbprops;
+      let uiKey = attr.name;
+      if (options.win) {
+        const id = options.win.getnewid();
+        uiKey = attr.name + "_" + id;
+        this._id = uiKey;
+      }
       let actl = {
         type: "tpl",
-        id: attr.name,
+        id: uiKey,
         name: attr.name,
-        className: attr.name,
+        className: uiKey,
         style: {
           left: attr.x,
           top: attr.y,
@@ -1009,11 +1150,17 @@ var pbfile_default = PBFile;
           position: "absolute",
           whiteSpace: "nowrap"
         },
-        disabledOn: "disabled." + attr.name
+        disabledOn: "disabled." + uiKey
       };
       this.name = attr.name;
       if (attr.textsize) {
         actl.style.fontSize = attr.textsize + "pt";
+      }
+      if (attr.textcolor) {
+        actl.style.color = attr.textcolor;
+      }
+      if (attr.background) {
+        actl.style.background = attr.background;
       }
       if (attr.bringtotop === "true") {
         actl.style.zIndex = 100;
@@ -1021,8 +1168,11 @@ var pbfile_default = PBFile;
       if (attr.visible === false) {
         actl.style.visibility = "hidden";
       }
+      if (attr.fontsize) {
+        actl.style.fontSize = attr.fontsize;
+      }
       if (attr.enabled === false) {
-        options.page.data.disabled[attr.name] = true;
+        options.page.data.disabled[uiKey] = true;
       }
       if (attr.html) {
         actl.tpl = attr.html;
@@ -1036,17 +1186,28 @@ var pbfile_default = PBFile;
             this[key] = attr[key];
           }
         }
-      }
-      if (addprop && options.win) {
         let control = null;
         let win = options.win;
-        addPositionProperty(this, () => {
+        this.raw = () => {
           if (control) {
             return control;
           }
-          control = win.root.querySelector(`.${attr.name}`);
+          control = win.root.querySelector(`.${uiKey}`);
           return control;
+        };
+        this.style = new Proxy(this, {
+          get(target, key) {
+            let result = target.raw().style[key];
+            return result;
+          },
+          set(target, key, value) {
+            const style = target.raw().style;
+            style[key] = value;
+          }
         });
+      }
+      if (addprop && options.win) {
+        addPositionProperty(this, this.raw);
       }
       if (options.win) {
         addTextProperty(this, options.win);
@@ -1055,7 +1216,7 @@ var pbfile_default = PBFile;
         const inst = this;
         this.setvalues = (key, data) => {
           const props = options.win.getProps();
-          props.store.changeValue(`${inst.name}_values.${key}`, data);
+          props.store.changeValue(`${inst._id}_values.${key}`, data);
         };
         this.doaction = (action) => {
           const props = options.win.getProps();
@@ -1070,10 +1231,6 @@ var pbfile_default = PBFile;
     }
   }
   class userobject extends windowobject {
-    pbconstructor() {
-    }
-    destructor() {
-    }
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
@@ -1089,7 +1246,7 @@ var pbfile_default = PBFile;
         };
         delete attrs.type;
         Object.assign(actl.tab, attrs);
-        const vkey = attrs.name + "_invisible";
+        const vkey = this._id + "_invisible";
         actl.disabledOn = attrs.disabledOn;
         actl.visibleOn = "${!(" + vkey + " === true)}";
         childs = actl.tab.body;
@@ -1120,12 +1277,12 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "tabs";
       actl.mountOnEnter = false;
-      actl.activeKey = "${" + attr.name + "_values.activeKey|toInt}";
+      actl.activeKey = "${" + this._id + "_values.activeKey|toInt}";
       if (attr.selectedtab !== void 0) {
         let index = parseInt(attr.selectedtab);
         if (index > 0)
           index = index - 1;
-        options.page.data[attr.name + "_values.activeKey"] = index;
+        options.page.data[this._id + "_values.activeKey"] = index;
         this.selectedtab = index + 1;
       }
       const childs = actl.tabs = [];
@@ -1165,8 +1322,16 @@ var pbfile_default = PBFile;
     }
   }
   class pbwindow extends windowobject {
+    _idindex = 0;
     constructor(options) {
       super(options);
+    }
+    getnewid() {
+      ++this._idindex;
+      return this._idindex;
+    }
+    typeof() {
+      return "window!";
     }
     /* 系统默认事件 */
     onResize(sizetype, newwidth, newheight) {
@@ -1186,6 +1351,9 @@ var pbfile_default = PBFile;
     }
     workspacey() {
       return this.y;
+    }
+    parentwindow() {
+      return null;
     }
     timer(interval) {
       if (this._interval) {
@@ -1305,8 +1473,8 @@ var pbfile_default = PBFile;
       const attr = this._pbprops;
       let actl = super.toUI(options);
       actl.type = "tpl";
-      actl.tpl = "${" + attr.name + "}";
-      options.page.data[attr.name] = attr.text;
+      actl.tpl = "${" + this._id + "}";
+      options.page.data[this._id] = attr.text;
       if (options.js && attr.events && attr.events["clicked"]) {
         const inst = this;
         actl.onEvent = {
@@ -1326,6 +1494,15 @@ var pbfile_default = PBFile;
       return actl;
     }
   }
+  class statichyperlink extends statictext {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      actl.style.color = "rgb(36,104,242)";
+      return actl;
+    }
+  }
+  root.statichyperlink = statichyperlink;
   class singlelineedit extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
@@ -1337,11 +1514,9 @@ var pbfile_default = PBFile;
         actl.type = "input-text";
       }
       actl.value = attr.text;
-      actl.inputControlClassName = `${this.name}`;
-      if (attr.placeholder) {
-        actl.placeholder = attr.placeholder;
-      }
-      options.css[`.${attr.name}`] = { "height": attr.height + "px!important", "padding": "0px 5px!important" };
+      actl.inputControlClassName = `${this._id}`;
+      addPlaceholderProperty(this, actl, options);
+      options.css[`.${this._id}`] = { "height": attr.height + "px!important", "padding-top": "0px!important", "padding-bottom": "0px!important" };
       if (options.js && attr.events && attr.events["modified"]) {
         const inst = this;
         actl.onEvent = {
@@ -1359,6 +1534,15 @@ var pbfile_default = PBFile;
       }
       return actl;
     }
+    // set placeholder(value) {
+    //   const attr = this._pbprops;
+    //   attr.placeholder = value;
+    //   this.setvalues('placeholder', value);
+    // }
+    // get placeholder() {
+    //   const attr = this._pbprops;
+    //   return attr.placeholder;
+    // }
   }
   class multilineedit extends windowobject {
     toUI(options) {
@@ -1367,7 +1551,8 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "textarea";
       actl.value = attr.text;
-      options.css[`.${attr.name} textarea`] = { "max-height": `${attr.height}px`, "min-height": `${attr.height}px`, "resize": "none" };
+      options.css[`.${this._id} textarea`] = { "max-height": `${attr.height}px`, "min-height": `${attr.height}px`, "resize": "none" };
+      addPlaceholderProperty(this, actl, options);
       if (options.js && attr.events && attr.events["modified"]) {
         const inst = this;
         actl.onEvent = {
@@ -1391,14 +1576,20 @@ var pbfile_default = PBFile;
       const attr = this._pbprops;
       let actl = super.toUI(options);
       delete actl.tpl;
-      const { maskdatatype } = attr;
+      const { maskdatatype, mask } = attr;
       if (maskdatatype === "datemask!") {
         actl.type = "input-date";
-        actl.value = attr.text;
         actl.format = "YYYY-MM-DD";
+      } else if (maskdatatype === "datetimemask!") {
+        actl.type = "input-datetime";
+        actl.format = "YYYY-MM-DD HH:mm:ss";
+      } else if (maskdatatype === "timemask!") {
+        actl.type = "input-time";
+        actl.format = "HH:mm:ss";
+      } else if (maskdatatype === "stringmask!") {
+        actl.type = "input-text";
       } else {
         actl.type = "input-number";
-        actl.value = attr.text;
         actl.showSteps = attr.spin;
         if (actl.showSteps && attr.minmax) {
           const mm = attrToMinMax(attr.minmax);
@@ -1406,6 +1597,11 @@ var pbfile_default = PBFile;
           actl.max = mm[1];
           actl.step = attr.increment;
         }
+      }
+      actl.value = attr.text;
+      addPlaceholderProperty(this, actl, options);
+      if (mask) {
+        actl.format = mask;
       }
       if (options.js && attr.events && attr.events["modified"]) {
         const inst = this;
@@ -1435,6 +1631,37 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "button";
       actl.label = attr.text;
+      if (options.win) {
+        const name = this._id;
+        Object.defineProperties(this, {
+          "text": {
+            enumerable: true,
+            configurable: true,
+            set: (value) => {
+              const control = options.win.root.querySelector(`.${name}`);
+              if (control) {
+                let span = control.children[0];
+                if (span) {
+                  span.innerHTML = value;
+                } else {
+                  control.innerHTML = `<span>${value}</span>`;
+                }
+              }
+            },
+            get: () => {
+              const control = options.win.root.querySelector(`.${name}`);
+              if (control) {
+                let span = control.children[0];
+                if (span) {
+                  return span.innerHTML;
+                } else {
+                  return "";
+                }
+              }
+            }
+          }
+        });
+      }
       if (options.js && attr.events && attr.events["clicked"]) {
         const inst = this;
         actl.onClick = (e, props) => {
@@ -1451,6 +1678,21 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "checkbox";
       actl.option = attr.text;
+      if (options.js && attr.events && attr.events["clicked"]) {
+        const inst = this;
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": () => {
+                  inst.postevent("clicked");
+                }
+              }
+            ]
+          }
+        };
+      }
       return actl;
     }
     get checked() {
@@ -1500,20 +1742,38 @@ var pbfile_default = PBFile;
       let actl = super.toUI(options);
       delete actl.tpl;
       actl.type = "select";
-      actl.name = attr.name;
-      attr.options = actl.options = [];
+      this.items = [];
+      actl.source = `\${${this._id}_values.source}`;
       if (attr["item[]"]) {
         for (const o of attr["item[]"]) {
-          actl.options.push({ label: o, value: o });
+          this.items.push({ label: o, value: o });
         }
       }
+      if (attr.placeholder) {
+        actl.placeholder = attr.placeholder;
+      }
+      options.page.data[`${this._id}_values`] = {
+        source: this.items
+      };
       return actl;
     }
     selectitem(index) {
-      const attr = this._pbprops;
-      if (attr.options) {
-        this.text = attr.options[index - 1].label;
-      }
+      this.text = this.items[index - 1].label;
+    }
+    reset() {
+      this.items.length = 0;
+      this.setvalues("source", [...this.items]);
+    }
+    additem(item) {
+      this.items.push({ label: item, value: item });
+      this.setvalues("source", [...this.items]);
+    }
+    deleteitem(index) {
+      this.items.splice(index - 1, 1);
+      this.setvalues("source", [...this.items]);
+    }
+    totalitems() {
+      return this.items.length;
     }
   }
   class hprogressbar extends windowobject {
@@ -1573,6 +1833,18 @@ var pbfile_default = PBFile;
       return actl;
     }
   }
+  class icon extends windowobject {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      actl.type = "icon";
+      actl.icon = attr.icon;
+      actl.style.textAlign = "center";
+      actl.style.alignContent = "center";
+      return actl;
+    }
+  }
+  root.icon = icon;
   function addDWProperties(dwCls) {
     const p = dwCls.prototype;
     p.accepttext = function() {
@@ -1744,7 +2016,7 @@ var pbfile_default = PBFile;
   class datastore extends powerobject {
     constructor(ds) {
       super({});
-      if (ds) {
+      if (ds instanceof DataStore) {
         this._dw = ds;
       } else {
         this._dw = new DataStore();
@@ -1984,10 +2256,10 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "nav";
       actl.stacked = false;
-      options.page.data[attr.name] = {
+      options.page.data[this._id] = {
         "source": attr.links
       };
-      actl.source = `\${${attr.name}_values.source}`;
+      actl.source = `\${${this._id}_values.source}`;
       if (options.js && attr.events && attr.events["clicked"]) {
         const inst = this;
         actl.onEvent = {

@@ -424,14 +424,14 @@ body {
   width: 200px;
 }
 .satreport-filter {
-  border: 1px solid #e9e9e9;
+  border: 1px solid lightgray;
   font-size: 12px;
   margin: 10px;
 }
 .satreport-filter .satreport-header {
   padding: 0.5em 0.75em;
   background: #f8f8f9;
-  border-bottom: 1px solid #e9e9e9;
+  border-bottom: 1px solid lightgray;
   border-left: 1px solid transparent;
 }
 .satreport-filter .satreport-body {
@@ -770,7 +770,7 @@ body {
   height: 30px;
   padding: 0 8px;
   background: #fff;
-  border: 1px solid #e9e9e9;
+  border: 1px solid lightgray;
   border-radius: 3px;
   transition: box-shadow 0.1s ease, border-color 0.1s ease;
   box-shadow: inset 0 1px 2px hsla(0, 0%, 4%, 0.06);
@@ -783,7 +783,7 @@ body {
   position: relative;
   display: inline-block;
   background: #fff;
-  border: 1px solid #e9e9e9;
+  border: 1px solid lightgrey;
   border-radius: 2px;
   cursor: pointer;
   color: rgba(0, 0, 0, 0.87);
@@ -1223,18 +1223,18 @@ form fieldset select {
 .satreport-designer .content .left-pane {
   min-width: 100px;
   width: 180px;
-  border: 1px solid #e9e9e9;
+  border: 1px solid lightgray;
   overflow: hidden;
 }
 .satreport-designer .content .right-pane {
   min-width: 100px;
   width: 180px;
-  border: 1px solid #e9e9e9;
+  border: 1px solid lightgray;
   overflow: hidden;
 }
 .satreport-designer .content .center-pane {
   flex-grow: 1;
-  border: 1px solid #e9e9e9;
+  border: 1px solid lightgray;
   overflow: hidden;
 }
 .satreport-designer-bar {
