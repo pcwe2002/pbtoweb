@@ -33,7 +33,7 @@ Convert Powerbuilder UI to web Automatically.
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/en 下载安装
 2. 进入命令行窗口cmd, 输入以下命令安装pbtoweb
-如何已经安装pbtoweb，先卸载
+如已经安装pbtoweb，先卸载
 ```shell
 npm uninstall pbtoweb -g
 ```  
