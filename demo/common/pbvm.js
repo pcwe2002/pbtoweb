@@ -701,7 +701,6 @@ var pbfile_default = PBFile;
     } else {
       PB.message.powerobjectparm = parameter;
     }
-    const content = document.createElement("div");
     const w = new windowvar();
     let windowtype = w._pbprops.windowtype;
     const modalOptions = {
@@ -719,6 +718,14 @@ var pbfile_default = PBFile;
     if (w._pbprops.titlebar === "true" || w._pbprops.titlebar === true) {
       modalOptions.titlebar = true;
     }
+    let content;
+    if (parameter && parameter.root) {
+      content = parameter.root;
+      windowvar.instance = w;
+      w.show(content);
+      return;
+    }
+    content = document.createElement("div");
     const d = new H5UI.Modal(w._pbprops.title, [content], modalOptions);
     w._dialog = d;
     return new Promise((resolve) => {
@@ -918,13 +925,14 @@ var pbfile_default = PBFile;
     id = 0;
     autocommit = false;
     cursor = {};
+    url = "";
     async ping() {
       if (this.id <= 0) {
         clearInterval(this._timerPing);
         this._timerPing = 0;
         return 0;
       }
-      let ret = await axios.post("/sqlca/ping", { id: this.id });
+      let ret = await axios.post(this.url + "/sqlca/ping", { id: this.id });
       if (ret.status === 200) {
         return 0;
       } else {
@@ -932,7 +940,7 @@ var pbfile_default = PBFile;
       }
     }
     async connect() {
-      let ret = await axios.post("/sqlca/connect", { key: this.dbms });
+      let ret = await axios.post(this.url + "/sqlca/connect", { key: this.dbms });
       if (ret.status === 200) {
         this.id = ret.data.id;
         this._timerPing = setInterval(() => {
@@ -947,7 +955,7 @@ var pbfile_default = PBFile;
       if (this.id <= 0) {
         return;
       }
-      let ret = await axios.post("/sqlca/disconnect", { id: this.id });
+      let ret = await axios.post(this.url + "/sqlca/disconnect", { id: this.id });
       if (ret.status === 200) {
         this.id = 0;
         clearInterval(this._timerPing);
@@ -958,7 +966,7 @@ var pbfile_default = PBFile;
       if (this.id <= 0) {
         return;
       }
-      let ret = await axios.post("/sqlca/begintrans", { id: this.id });
+      let ret = await axios.post(this.url + "/sqlca/begintrans", { id: this.id });
       if (ret.status === 200) {
         return 0;
       }
@@ -968,7 +976,7 @@ var pbfile_default = PBFile;
       if (this.id <= 0) {
         return;
       }
-      let ret = await axios.post("/sqlca/commit", { id: this.id });
+      let ret = await axios.post(this.url + "/sqlca/commit", { id: this.id });
       if (ret.status === 200) {
         return 0;
       }
@@ -978,7 +986,7 @@ var pbfile_default = PBFile;
       if (this.id <= 0) {
         return;
       }
-      let ret = await axios.post("/sqlca/rollback", { id: this.id });
+      let ret = await axios.post(this.url + "/sqlca/rollback", { id: this.id });
       if (ret.status === 200) {
         return 0;
       }
@@ -990,29 +998,34 @@ var pbfile_default = PBFile;
           arg[i] = arg[i].format("yyyy-MM-dd hh:mm:ss");
         }
       }
-      let ret = await axios.post("/h5dw/retrieve", { key: sql, args: arg, id: this.id });
+      let ret = await axios.post(this.url + "/h5dw/retrieve", { key: sql, args: arg, id: this.id });
       if (ret.status === 200) {
         return ret.data.data;
       }
       throw `retrieve error ${ret.status}`;
     }
     async updateDW(key, data) {
-      let ret = await axios.post("/h5dw/update", { key, data, id: this.id });
+      let ret = await axios.post(this.url + "/h5dw/update", { key, data, id: this.id });
       if (ret.status === 200) {
         return ret.data.status === 0 ? 1 : -1;
       } else {
         return -1;
       }
     }
-    async syntaxFromSQL(sql) {
-      let ret = await axios.post("/h5dw/syntax", { sql, id: this.id });
+    async syntaxfromsql(sql) {
+      let ret = await axios.post(this.url + "/h5dw/syntax", { sql, id: this.id });
       if (ret.status === 200) {
-        return ret.data.data;
+        this.sqlcode = ret.data.status === 0 ? 0 : -1;
+        if (this.sqlcode !== 0) {
+          this.sqlerrtext = ret.data.msg;
+          throw `syntaxFromSQL error ${ret.data.msg}`;
+        }
+        return ret.data.dataobject;
       }
       throw `syntaxFromSQL error ${ret.status}`;
     }
     async query(key, args) {
-      let ret = await axios.post("/queryembedsql", { key, args, id: this.id });
+      let ret = await axios.post(this.url + "/queryembedsql", { key, args, id: this.id });
       this.sqlnrows = 0;
       if (ret.status === 200) {
         this.sqlcode = ret.data.status === 0 ? 0 : -1;
@@ -1037,7 +1050,7 @@ var pbfile_default = PBFile;
       return r;
     }
     async execute(key, args) {
-      let ret = await axios.post("/embedsql", { key, args, id: this.id });
+      let ret = await axios.post(this.url + "/embedsql", { key, args, id: this.id });
       this.sqlnrows = 0;
       if (ret.status === 200) {
         this.sqlcode = ret.data.status === 0 ? 0 : -1;
@@ -1053,7 +1066,7 @@ var pbfile_default = PBFile;
       }
     }
     async opencursor(key, args) {
-      let ret = await axios.post("/queryembedsql", { key, args, id: this.id, cursor: true });
+      let ret = await axios.post(this.url + "/queryembedsql", { key, args, id: this.id, cursor: true });
       if (ret.status === 200) {
         this.sqlcode = ret.data.status;
         const data = ret.data.data;
@@ -1140,7 +1153,7 @@ var pbfile_default = PBFile;
       let actl = {
         type: "tpl",
         id: uiKey,
-        name: attr.name,
+        name: uiKey,
         className: uiKey,
         style: {
           left: attr.x,
@@ -1460,14 +1473,96 @@ var pbfile_default = PBFile;
       if (this._dialog) {
         this._dialog.hide(rtn);
       }
+      if (this.root) {
+        this.root.innerHTML = "";
+      }
     }
   }
+  function calculateDistance(pointA, pointB) {
+    const dx = pointB.x - pointA.x;
+    const dy = pointB.y - pointA.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function calculateAngleWithXAxis(pointA, pointB) {
+    const x1 = pointA.x;
+    const y1 = pointA.y;
+    const x2 = pointB.x;
+    const y2 = pointB.y;
+    if (x1 === x2) {
+      return y2 > y1 ? 90 : 270;
+    }
+    const m = (y2 - y1) / (x2 - x1);
+    let angleInRadians = Math.atan(m);
+    let angleInDegrees = angleInRadians * 180 / Math.PI;
+    if (x2 > x1 && y2 < y1) {
+      angleInDegrees += 180;
+    } else if (x2 < x1 && y2 > y1) {
+      angleInDegrees += 180;
+    } else if (x2 < x1 && y2 < y1) {
+      angleInDegrees += 360;
+    }
+    return angleInDegrees;
+  }
+  class line extends windowobject {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      delete actl.tpl;
+      actl.type = "divider";
+      let begin = { x: attr.beginx, y: attr.beginy };
+      let end = { x: attr.endx, y: attr.endy };
+      actl.style.left = attr.beginx;
+      actl.style.top = attr.beginy;
+      const width = calculateDistance(begin, end);
+      actl.style.width = width;
+      actl.style.height = 0;
+      actl.color = attr.linecolor;
+      if (begin.y === end.y) {
+        actl.rotate = 0;
+      } else {
+        actl.rotate = calculateAngleWithXAxis(begin, end);
+      }
+      return actl;
+    }
+  }
+  root.line = line;
   class rectangle extends windowobject {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      delete actl.tpl;
+      actl.style.border = "solid";
+      actl.style.borderColor = attr.linecolor;
+      if (attr.fillcolor) {
+        actl.style.backgroundColor = attr.fillcolor;
+      }
+      if (attr.linethickness) {
+        actl.style.borderWidth = attr.linethickness;
+      } else {
+        actl.style.borderWidth = 1;
+      }
+      return actl;
+    }
   }
   root.rectangle = rectangle;
-  class roundrectangle extends windowobject {
+  class roundrectangle extends rectangle {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      actl.style.borderRadius = attr.cornerwidth;
+      return actl;
+    }
   }
   root.roundrectangle = roundrectangle;
+  class oval extends rectangle {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      actl.style.borderRadius = "50%";
+      return actl;
+    }
+  }
+  root.oval = oval;
   class statictext extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
@@ -1621,6 +1716,35 @@ var pbfile_default = PBFile;
       return actl;
     }
   }
+  class datepicker extends windowobject {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      delete actl.tpl;
+      actl.type = "input-datetime";
+      actl.format = "YYYY-MM-DD HH:mm:ss";
+      if (options.win) {
+        const obj = this;
+        Object.defineProperties(obj, {
+          "value": {
+            enumerable: true,
+            configurable: true,
+            set: (value) => {
+              obj.text = value;
+            },
+            get: () => {
+              return obj.text;
+            }
+          }
+        });
+      }
+      return actl;
+    }
+    setvalue(value) {
+      this.text = value;
+    }
+  }
+  root.datepicker = datepicker;
   class richtextedit extends multilineedit {
   }
   root.richtextedit = richtextedit;
@@ -1755,10 +1879,26 @@ var pbfile_default = PBFile;
       options.page.data[`${this._id}_values`] = {
         source: this.items
       };
+      if (options.js && attr.events && attr.events["selectionchanged"]) {
+        const inst = this;
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": () => {
+                  inst.postevent("selectionchanged");
+                }
+              }
+            ]
+          }
+        };
+      }
       return actl;
     }
     selectitem(index) {
       this.text = this.items[index - 1].label;
+      this.postevent("selectionchanged");
     }
     reset() {
       this.items.length = 0;
@@ -1872,6 +2012,12 @@ var pbfile_default = PBFile;
       return this._dw.setItem(...arguments);
     };
     p.getitem = function(row, column = null) {
+      return this._dw.getItem(...arguments);
+    };
+    p.getitemstring = function(row, column = null) {
+      return this._dw.getItem(...arguments);
+    };
+    p.getitemnumber = function(row, column = null) {
       return this._dw.getItem(...arguments);
     };
     p.setitemstatus = function(row, column, dwbuffer, status) {
@@ -2012,6 +2158,14 @@ var pbfile_default = PBFile;
     p.setdataobject = async function(value) {
       return await this._dw.setDataObject(value);
     };
+    p.create = function() {
+      if (arguments.length > 0) {
+        return this._dw.create(...arguments);
+      }
+    };
+    p.print = function() {
+      return this._dw.print(...arguments);
+    };
   }
   class datastore extends powerobject {
     constructor(ds) {
@@ -2049,6 +2203,9 @@ var pbfile_default = PBFile;
         if (!actl.option)
           actl.option = {};
         Object.assign(actl.option, { showVScrollBar: false });
+      }
+      if (attr.border === false || attr.border === "false") {
+        actl.border = false;
       }
       if (options.js && attr.events) {
         const dwEvent = {
@@ -2101,7 +2258,7 @@ var pbfile_default = PBFile;
       return actl;
     }
     get _dw() {
-      return this._win._page[this.name];
+      return this._win._page[this._id];
     }
     get dataobject() {
       return this._dataobject;
@@ -2124,6 +2281,12 @@ var pbfile_default = PBFile;
     }
     set vscrollbar(value) {
       this._dw.vScrollBar = value;
+    }
+    get border() {
+      return this._dw.border;
+    }
+    set border(value) {
+      this._dw.border = value;
     }
     // settransobject(db) {
     //   return this._dw.setTransObject();

@@ -371,13 +371,13 @@ body {
   opacity: 0.65;
   font-size: 1em;
 }
-.x-spreadsheet-item.state,
-.x-spreadsheet-header.state {
+.satreport-item.state,
+.satreport-header.state {
   padding-left: 35px!important;
   position: relative;
 }
-.x-spreadsheet-item.state:before,
-.x-spreadsheet-header.state:before {
+.satreport-item.state:before,
+.satreport-header.state:before {
   content: '';
   position: absolute;
   width: 10px;
@@ -387,8 +387,8 @@ body {
   background: rgba(0, 0, 0, 0.08);
   border-radius: 2px;
 }
-.x-spreadsheet-item.state.checked:before,
-.x-spreadsheet-header.state.checked:before {
+.satreport-item.state.checked:before,
+.satreport-header.state.checked:before {
   background: #4b89ff;
 }
 .satreport-checkbox {

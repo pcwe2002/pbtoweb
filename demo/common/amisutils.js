@@ -395,8 +395,13 @@ if (!window.getQueryString) {
         // dom.current.style['border'] = '1.5px solid #e9e9e9';
         // dom.current.style['width'] = '100%';
         // dom.current.style['height'] = '50px';
+
         dom.current.style = "position:relative;overflow:hidden;border:1.5px solid #e9e9e9;width:100%;height:50px"
 
+        if (props.$schema.border === 'false' || props.$schema.border === false) {
+          dom.current.style['border'] = 'none';
+        }
+        
         let name = props.$schema.name;
         if (!name) {
           name = `dw${++index}`;
@@ -450,6 +455,15 @@ if (!window.getQueryString) {
         }
         // dom.current.style = getStyle(style);
       },[props.$schema.style.width,props.$schema.style.height,props.$schema.style.top,props.$schema.style.left]);
+
+      React.useEffect(function () {
+        const {border} = props.$schema;
+        if (border === 'false' || border === false) {
+          dom.current.dw.border = false;
+        } else {
+          dom.current.dw.border = true;
+        }
+      },[props.$schema.border]);
 
       React.useEffect(function () {
         if (props.$schema.dataobject) {
