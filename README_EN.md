@@ -28,7 +28,7 @@ Convert Powerbuilder UI to web Automatically.
 * [x] Embedded SQL
 
 ## Conversion Effect
-![demo](./demo/image/demo.png)
+![demo](https://pcwe2002.github.io/pbtoweb/demo/image/demo.png)
 [http://www.satrda.com/pbtoweb](http://www.satrda.com/pbtoweb)
 
 ## Usage:

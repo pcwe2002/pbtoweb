@@ -31,7 +31,7 @@ Convert Powerbuilder UI to web Automatically.
 * [x] 嵌入式SQL
 
 ## 转换效果
-![demo](./demo/image/demo.png)
+![demo](https://pcwe2002.github.io/pbtoweb/demo/image/demo.png)
 [http://www.satrda.com/pbtoweb](http://www.satrda.com/pbtoweb)
 
 ## 使用说明：
