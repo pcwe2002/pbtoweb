@@ -27,17 +27,35 @@ Convert Powerbuilder UI to web Automatically.
 * [x] Global functions
 * [x] Embedded SQL
 
+## Conversion Effect
+![demo](./demo/image/demo.png)
+[http://www.satrda.com/pbtoweb](http://www.satrda.com/pbtoweb)
+
 ## Usage:
 
 1. If Node.js is not installed, you need to install it. You can download and install Node.js from https://nodejs.org/en.
-2. Export the pb code, including the window and inherited objects to a directory (such as the pbcode directory in the example).
-3. Open the command line window (cmd), and enter the following command to install pbtoweb.
+
+2. Open the command line window (cmd), and enter the following command to install pbtoweb.
+
+If you have already installed pbtoweb, uninstall it first:
+```shell
+npm uninstall pbtoweb -g
+``` 
+Install:
 ```shell
 npm i pbtoweb -g
 ```      
+
+3. Export your PowerBuilder (PB) code, including windows and inherited objects, to a directory (e.g., the pbcode directory in the example). Alternatively, you can use the `tool/pbldump` tool to export the entire PBL to a specified folder. pbldump is located in the installed pbtoweb directory. You can find the directory path using the command `npm config get prefix`.
+
 4. If you want to convert a single window:
 ```shell
 pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
+```
+
+If you want to convert the window and its associated objects:
+```shell
+pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js --r
 ```
 
 If you want to convert all objects:
@@ -275,7 +293,7 @@ class uo_json extends nonvisualobject {
 root.uo_webbrowser = uo_webbrowser;
 })(typeof window !== "undefined" ? window : null);
 ```
-If some pb runtime functions have not been implemented, please modify `src/pbvm.js` to add functions or implement pb standard objects, and put them in `demo/common` to see the effect. 
+If some pb runtime functions have not been implemented, please modify `src/pbvm.js` to add functions or implement pb standard objects. 
 
 If you have supplemented the standard library of `pbvm.js`, please contact me (`9091178@qq.com`) to update it, so that everyone can use it conveniently. Thank you for contributing to the development of pbtoweb. 
 

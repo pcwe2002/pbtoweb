@@ -30,19 +30,25 @@ Convert Powerbuilder UI to web Automatically.
 * [x] 全局函数
 * [x] 嵌入式SQL
 
+## 转换效果
+![demo](./demo/image/demo.png)
+[http://www.satrda.com/pbtoweb](http://www.satrda.com/pbtoweb)
+
 ## 使用说明：
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/en 下载安装
 2. 进入命令行窗口cmd, 输入以下命令安装pbtoweb
+
 如已经安装pbtoweb，先卸载
 ```shell
 npm uninstall pbtoweb -g
 ```  
+安装
 ```shell
 npm i pbtoweb -g
 ```   
 
-1. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，pbldump在安装的pbtoweb目录中，目录可以通过命令`npm config get prefix` 查看
-2. 如果要转化单独的窗口，输入命令
+3. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，pbldump在安装的pbtoweb目录中，目录可以通过命令`npm config get prefix` 查看
+4. 如果要转化单独的窗口，输入命令
 ```shell
 pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
 ```
@@ -288,7 +294,7 @@ class uo_json extends nonvisualobject {
 root.uo_webbrowser = uo_webbrowser;
 })(typeof window !== "undefined" ? window : null);
 ```
-如果一些pb运行函数没有实现，请修改`src/pbvm.js`进行函数添加或者pb标准对象的实现，并放到`demo/common`中可以看到效果。
+如果一些pb运行函数没有实现，请修改`demo/common/pbvm.js`进行函数添加或者pb标准对象的实现。
 如果补充了`pbvm.js`标准库，请联系我(9091178@qq.com)更新，方便大家使用。感谢贡献力量推动pbtoweb前进。
 
 
