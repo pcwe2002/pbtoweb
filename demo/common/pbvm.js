@@ -1216,6 +1216,7 @@ var pbfile_default = PBFile;
           set(target, key, value) {
             const style = target.raw().style;
             style[key] = value;
+            return true;
           }
         });
       }
@@ -1479,6 +1480,12 @@ var pbfile_default = PBFile;
     }
   }
   function calculateDistance(pointA, pointB) {
+    if (pointB.x === pointA.x) {
+      return Math.abs(pointB.y - pointA.y);
+    }
+    if (pointB.y === pointA.y) {
+      return Math.abs(pointB.x - pointA.x);
+    }
     const dx = pointB.x - pointA.x;
     const dy = pointB.y - pointA.y;
     return Math.sqrt(dx * dx + dy * dy);
@@ -1503,26 +1510,100 @@ var pbfile_default = PBFile;
     }
     return angleInDegrees;
   }
+  const lineStyle = {
+    "dot!": "dotted",
+    "dash!": "dashed",
+    "transparent!": "none"
+  };
   class line extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
       let actl = super.toUI(options);
       delete actl.tpl;
       actl.type = "divider";
-      let begin = { x: attr.beginx, y: attr.beginy };
-      let end = { x: attr.endx, y: attr.endy };
       actl.style.left = attr.beginx;
       actl.style.top = attr.beginy;
-      const width = calculateDistance(begin, end);
-      actl.style.width = width;
+      if (attr.linestyle && lineStyle[attr.linestyle]) {
+        actl.style.borderStyle = lineStyle[attr.linestyle];
+      }
+      const { width, rotate } = this.getPos();
       actl.style.height = 0;
       actl.color = attr.linecolor;
-      if (begin.y === end.y) {
-        actl.rotate = 0;
-      } else {
-        actl.rotate = calculateAngleWithXAxis(begin, end);
+      if (attr.linethickness) {
+        actl.style.borderBottomWidth = attr.linethickness;
       }
+      actl.style.width = width;
+      actl.rotate = rotate;
       return actl;
+    }
+    get beginx() {
+      const attr = this._pbprops;
+      return attr.beginx;
+    }
+    set beginx(value) {
+      const attr = this._pbprops;
+      if (attr.beginx === value) {
+        return;
+      }
+      attr.beginx = value;
+      const { width, rotate } = this.getPos();
+      this.style.left = value + "px";
+      this.style.width = width + "px";
+      this.style.transform = `rotate(${rotate}deg)`;
+    }
+    get endx() {
+      const attr = this._pbprops;
+      return attr.endx;
+    }
+    set endx(value) {
+      const attr = this._pbprops;
+      if (attr.endx === value) {
+        return;
+      }
+      attr.endx = value;
+      const { width, rotate } = this.getPos();
+      this.style.width = width + "px";
+      this.style.transform = `rotate(${rotate}deg)`;
+    }
+    get beginy() {
+      const attr = this._pbprops;
+      return attr.beginy;
+    }
+    set beginy(value) {
+      const attr = this._pbprops;
+      if (attr.beginy === value) {
+        return;
+      }
+      attr.beginy = value;
+      const { width, rotate } = this.getPos();
+      this.style.top = value + "px";
+      this.style.width = width + "px";
+      this.style.transform = `rotate(${rotate}deg)`;
+    }
+    get endy() {
+      const attr = this._pbprops;
+      return attr.endy;
+    }
+    set endy(value) {
+      const attr = this._pbprops;
+      if (attr.endy === value) {
+        return;
+      }
+      attr.endy = value;
+      const { width, rotate } = this.getPos();
+      this.style.width = width + "px";
+      this.style.transform = `rotate(${rotate}deg)`;
+    }
+    getPos() {
+      const attr = this._pbprops;
+      let begin = { x: attr.beginx, y: attr.beginy };
+      let end = { x: attr.endx, y: attr.endy };
+      const width = calculateDistance(begin, end);
+      let rotate = 0;
+      if (begin.y !== end.y) {
+        rotate = calculateAngleWithXAxis(begin, end);
+      }
+      return { width, rotate };
     }
   }
   root.line = line;
@@ -1532,6 +1613,9 @@ var pbfile_default = PBFile;
       let actl = super.toUI(options);
       delete actl.tpl;
       actl.style.border = "solid";
+      if (attr.linestyle && lineStyle[attr.linestyle]) {
+        actl.style.borderStyle = lineStyle[attr.linestyle];
+      }
       actl.style.borderColor = attr.linecolor;
       if (attr.fillcolor) {
         actl.style.backgroundColor = attr.fillcolor;
@@ -1721,8 +1805,44 @@ var pbfile_default = PBFile;
       const attr = this._pbprops;
       let actl = super.toUI(options);
       delete actl.tpl;
-      actl.type = "input-datetime";
-      actl.format = "YYYY-MM-DD HH:mm:ss";
+      actl.type = "input-date";
+      actl.displayFormat = "YYYY-MM-DD";
+      if (attr.format === "dtftime!") {
+        actl.type = "input-time";
+        actl.displayFormat = "HH:mm:ss";
+      } else if (attr.format === "dtflongdate!") {
+        actl.type = "input-date";
+        actl.displayFormat = "YYYY-MM-DD";
+      } else if (attr.format === "dtfcustom!") {
+        actl.type = "input-datetime";
+        attr.customformat = attr.customformat.replace("yyyy", "YYYY");
+        attr.customformat = attr.customformat.replace("dd", "DD");
+        actl.displayFormat = attr.customformat;
+      }
+      if (attr.value) {
+        actl.value = string(attr.value, actl.displayFormat);
+      }
+      if (attr.maxdate) {
+        actl.maxDate = string(attr.maxdate, actl.displayFormat);
+      }
+      if (attr.mindate) {
+        actl.minDate = string(attr.mindate, actl.displayFormat);
+      }
+      if (options.js && attr.events && attr.events["valuechanged"]) {
+        const inst = this;
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": (ev, ev1, event, ev3) => {
+                  inst.postevent("valuechanged", 0, event.data.value);
+                }
+              }
+            ]
+          }
+        };
+      }
       if (options.win) {
         const obj = this;
         Object.defineProperties(obj, {
