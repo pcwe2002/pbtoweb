@@ -20,6 +20,9 @@ body {
   outline: none;
 }
 .satreport-table {
+  position: relative;
+  left: 0;
+  top: 0;
   vertical-align: bottom;
 }
 .satreport-tooltip {
@@ -299,7 +302,7 @@ body {
   z-index: 100;
   pointer-events: auto;
 }
-.satreport-editor .satreport-editor-area textarea {
+.satreport-editor .satreport-editor-area .input {
   box-sizing: content-box;
   border: none;
   padding: 0 3px;
@@ -313,22 +316,6 @@ body {
   word-wrap: break-word;
   line-height: 22px;
   margin: 0;
-}
-.satreport-editor .satreport-editor-area input {
-  box-sizing: content-box;
-  border: none;
-  padding: 0 3px;
-  outline: none;
-  resize: none;
-  text-align: start;
-  overflow-y: hidden;
-  font: 400 13px Arial, 'Lato', 'Source Sans Pro', Roboto, Helvetica, sans-serif;
-  color: inherit;
-  white-space: normal;
-  word-wrap: break-word;
-  line-height: 22px;
-  margin: 0;
-  display: none;
 }
 .satreport-editor .satreport-editor-area .textline {
   overflow: hidden;

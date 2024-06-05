@@ -239,11 +239,17 @@ function getTypeofSign(name) {
   }
   return null;
 }
-function addPlaceholderProperty(obj, actl, options) {
-  actl.placeholder = `\${${obj._id}_values.placeholder}`;
+function addPlaceholderProperty(obj, actl, options, direct = false) {
   const attr = obj._pbprops;
-  if (attr.placeholder) {
-    options.page.data[this._id + "_values.placeholder"] = attr.placeholder;
+  if (direct) {
+    if (attr.placeholder) {
+      actl.placeholder = attr.placeholder;
+    }
+  } else {
+    actl.placeholder = `\${${obj._id}_values.placeholder}`;
+    if (attr.placeholder) {
+      options.page.data[this._id + "_values.placeholder"] = attr.placeholder;
+    }
   }
   Object.defineProperties(obj, {
     "placeholder": {
@@ -1135,8 +1141,17 @@ var pbfile_default = PBFile;
     resize(w, h) {
     }
     show() {
+      this.visible = true;
     }
-    setredraw() {
+    hide() {
+      this.visible = false;
+    }
+    setredraw(value) {
+      for (const c of this.control) {
+        if (typeof c.setredraw === "function") {
+          c.setredraw(value);
+        }
+      }
     }
     create() {
     }
@@ -1175,7 +1190,7 @@ var pbfile_default = PBFile;
       if (attr.background) {
         actl.style.background = attr.background;
       }
-      if (attr.bringtotop === "true") {
+      if (attr.bringtotop === "true" || attr.bringtotop === true) {
         actl.style.zIndex = 100;
       }
       if (attr.visible === false) {
@@ -1755,16 +1770,27 @@ var pbfile_default = PBFile;
       const attr = this._pbprops;
       let actl = super.toUI(options);
       delete actl.tpl;
-      const { maskdatatype, mask } = attr;
-      if (maskdatatype === "datemask!") {
+      let { maskdatatype, mask } = attr;
+      mask = mask.replace(/yyyy-mm-dd/gi, "YYYY-MM-DD");
+      mask = mask.replace(/yyyy-mm/gi, "YYYY-MM");
+      mask = mask.replace(/yyyy\/mm\/dd/gi, "YYYY/MM/DD");
+      mask = mask.replace(/yyyy\/mm/gi, "YYYY/MM");
+      mask = mask.replace(/hh:mm:ss/gi, "HH:mm:ss");
+      mask = mask.replace(/hh:mm/gi, "HH:mm");
+      if (maskdatatype === "datemask!" || mask === "YYYY-MM-DD" || mask === "YYYY/MM/DD") {
         actl.type = "input-date";
-        actl.format = "YYYY-MM-DD";
+        actl.format = mask ? mask : "YYYY-MM-DD";
+        actl.displayFormat = mask;
+        actl.valueFormat = "YYYY-MM-DD";
+        actl.clearable = false;
       } else if (maskdatatype === "datetimemask!") {
         actl.type = "input-datetime";
-        actl.format = "YYYY-MM-DD HH:mm:ss";
+        actl.format = mask ? mask : "YYYY-MM-DD HH:mm:ss";
+        actl.displayFormat = mask;
+        actl.valueFormat = "YYYY-MM-DD HH:mm:ss";
       } else if (maskdatatype === "timemask!") {
         actl.type = "input-time";
-        actl.format = "HH:mm:ss";
+        actl.format = mask ? mask : "HH:mm:ss";
       } else if (maskdatatype === "stringmask!") {
         actl.type = "input-text";
       } else {
@@ -1778,7 +1804,7 @@ var pbfile_default = PBFile;
         }
       }
       actl.value = attr.text;
-      addPlaceholderProperty(this, actl, options);
+      addPlaceholderProperty(this, actl, options, true);
       if (mask) {
         actl.format = mask;
       }
@@ -1798,6 +1824,36 @@ var pbfile_default = PBFile;
         };
       }
       return actl;
+    }
+    // 处理样式
+    pbattributes() {
+      let control = this.raw();
+      if (!control)
+        return;
+      let dt = control.querySelector(".cxd-DatePicker");
+      const attr = this._pbprops;
+      if (dt) {
+        dt.style.paddingLeft = "4px";
+        dt.style.paddingRight = "4px";
+        dt.style.height = attr.height + "px";
+        dt.style.minWidth = "unset";
+      }
+      let toggler = control.querySelector(".cxd-DatePicker-toggler");
+      if (toggler) {
+        toggler.style.display = "none";
+      }
+      let tx = control.querySelector(".cxd-TextControl-input");
+      if (tx) {
+        tx.style.height = attr.height + "px";
+        tx.style.paddingLeft = "4px";
+        tx.style.paddingRight = "4px";
+        tx.style.paddingTop = "0px";
+        tx.style.paddingBottom = "0px";
+        let input = tx.querySelector("input");
+        if (input) {
+          input.style.height = attr.height + "px";
+        }
+      }
     }
   }
   class datepicker extends windowobject {
@@ -1819,6 +1875,7 @@ var pbfile_default = PBFile;
         attr.customformat = attr.customformat.replace("dd", "DD");
         actl.displayFormat = attr.customformat;
       }
+      actl.valueFormat = actl.displayFormat;
       if (attr.value) {
         actl.value = string(attr.value, actl.displayFormat);
       }
@@ -1983,6 +2040,11 @@ var pbfile_default = PBFile;
   class dropdownlistbox extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
+      if (attr.textsize === 9) {
+        attr.height = 22;
+      } else {
+        attr.height = (attr.textsize - 9) * 2 + 22;
+      }
       let actl = super.toUI(options);
       delete actl.tpl;
       actl.type = "select";
@@ -2015,6 +2077,21 @@ var pbfile_default = PBFile;
         };
       }
       return actl;
+    }
+    pbattributes() {
+      let control = this.raw();
+      if (!control)
+        return;
+      let dt = control.querySelector(".cxd-Select");
+      const attr = this._pbprops;
+      if (dt) {
+        dt.style.paddingLeft = "4px";
+        dt.style.paddingRight = "4px";
+        dt.style.paddingTop = "1px";
+        dt.style.paddingBottom = "1px";
+        dt.style.height = `${attr.height}px`;
+        dt.style.minHeight = "auto";
+      }
     }
     selectitem(index) {
       this.text = this.items[index - 1].label;
@@ -2092,7 +2169,26 @@ var pbfile_default = PBFile;
       actl.innerClassName = "no-border";
       return actl;
     }
+    setpicture(bimage) {
+      const arrayBuffer = bimage.buffer;
+      const blob = new Blob([arrayBuffer], { type: "image/jpeg" });
+      const urlCreator = window.URL || window.webkitURL;
+      const imageUrl = urlCreator.createObjectURL(blob);
+      this.img = this.raw().querySelector("img");
+      this.img.src = imageUrl;
+    }
+    loadpicture(image) {
+      if (typeof image === "string") {
+        this.img = this.raw().querySelector("img");
+        this.img.src = image;
+      } else {
+        this.setpicture(image);
+      }
+    }
   }
+  class inkpicture extends picture {
+  }
+  root.inkpicture = picture;
   class icon extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
