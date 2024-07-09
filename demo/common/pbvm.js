@@ -895,6 +895,7 @@ var pbfile_default = PBFile;
     destructor() {
     }
   }
+  root.powerobject = powerobject;
   class pbcursor extends powerobject {
     constructor(key, args, db) {
       this.key = key;
@@ -1099,6 +1100,7 @@ var pbfile_default = PBFile;
     destroy() {
     }
   }
+  root.nonvisualobject = nonvisualobject;
   class windowobject extends powerobject {
     visible;
     name;
@@ -1246,6 +1248,10 @@ var pbfile_default = PBFile;
         this.setvalues = (key, data) => {
           const props = options.win.getProps();
           props.store.changeValue(`${inst._id}_values.${key}`, data);
+        };
+        this.getvalues = (key) => {
+          const props = options.win.getProps();
+          return props.store.data[`${inst._id}_values.${key}`];
         };
         this.doaction = (action) => {
           const props = options.win.getProps();
@@ -2613,6 +2619,7 @@ var pbfile_default = PBFile;
       super(ds);
     }
   }
+  root.datawindowchild = datawindowchild;
   class timing extends nonvisualobject {
     start(interval) {
       this.stop();
@@ -2661,9 +2668,97 @@ var pbfile_default = PBFile;
     }
   }
   root.nav = nav;
-  root.datawindowchild = datawindowchild;
-  root.powerobject = powerobject;
-  root.nonvisualobject = nonvisualobject;
+  class treeview extends windowobject {
+    toUI(options) {
+      const attr = this._pbprops;
+      let actl = super.toUI(options);
+      delete actl.tpl;
+      actl.type = "input-tree";
+      actl.style.display = "flex";
+      options.page.data[this._id] = {
+        "source": attr.source
+      };
+      this.itemValues = [];
+      this.itemSource = [];
+      actl.source = `\${${this._id}_values.source}`;
+      if (options.js && attr.events && attr.events["change"]) {
+        const inst = this;
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": (ev, ev1, event, ev3) => {
+                  inst.triggerevent("change", event.data.value, event.data);
+                }
+              }
+            ]
+          }
+        };
+      }
+      return actl;
+    }
+    pbattributes() {
+      let control = this.raw();
+      if (!control)
+        return;
+      let dt = control.querySelector(".cxd-TreeControl");
+      const attr = this._pbprops;
+      if (dt) {
+        dt.style.padding = "0px";
+        dt.style.paddingRight = "0px";
+        dt.style.width = "100%";
+      }
+      let tree = control.querySelector(".cxd-Tree");
+      if (tree) {
+        tree.style.height = "100%";
+        tree.style.maxHeight = "unset";
+      }
+      let box = control.querySelector(".cxd-Form-item-controlBox");
+      if (box) {
+        box.style.width = "100%";
+      }
+    }
+    set source(data) {
+      this.setvalues("source", data);
+    }
+    get source() {
+      return this.getvalues("source");
+    }
+    getitem(handle) {
+      return this.itemValues[handle - 1];
+    }
+    insertitemlast(handle, item) {
+      if (typeof handle === "number") {
+        item = JSON.parse(JSON.stringify(item));
+        if (handle === 0) {
+          this.itemSource.push(item);
+          this.itemValues.push(item);
+          const index = this.itemValues.length;
+          item.value = index;
+          item.level = 1;
+          this.setvalues("source", this.itemSource);
+          return index;
+        } else {
+          let prev = this.itemValues[handle - 1];
+          if (Array.isArray(prev.children)) {
+            prev.children.push(item);
+          } else {
+            prev.children = [item];
+          }
+          item.level = prev.level + 1;
+          this.itemValues.push(item);
+          const index = this.itemValues.length;
+          item.value = index;
+          this.setvalues("source", this.itemSource);
+          return index;
+        }
+      }
+    }
+    expandall(itemhandle) {
+    }
+  }
+  root.treeview = treeview;
   root.userobject = userobject;
   root.pbwindow = pbwindow;
   root.windowobject = windowobject;
