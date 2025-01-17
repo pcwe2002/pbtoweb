@@ -267,6 +267,34 @@ function addPlaceholderProperty(obj, actl, options, direct = false) {
     }
   });
 }
+var keyCodes = {
+  "ArrowUp": "keyuparrow!",
+  "ArrowDown": "keydownarrow!",
+  "ArrowLeft": "keyleftarrow!",
+  "ArrowRight": "keyrightarrow!",
+  "Backspace": "keyback!",
+  "Tab": "keytab!",
+  "Enter": "keyenter!"
+};
+function keyConvert(key) {
+  const k = keyCodes[key];
+  if (k) {
+    return k;
+  }
+  return `key${key}!`.toLowerCase();
+}
+function toPBKeyFlag(e) {
+  const {
+    key,
+    ctrlKey,
+    shiftKey,
+    metaKey
+  } = e;
+  let flag = shiftKey ? 1 : 0;
+  flag = flag + ctrlKey ? 2 : 0;
+  const k = keyConvert(key);
+  return { flag, key: k };
+}
 
 // pbvm/pbdate.js
 var PBDate = {
@@ -340,6 +368,7 @@ var profile = {
     }
   }
 };
+var curDir = "/";
 var PBFile = {
   profilestring(filename, section, key, value) {
     let p = profile[filename];
@@ -360,6 +389,12 @@ var PBFile = {
       obj = obj[section] = {};
     }
     obj[key] = value;
+  },
+  getcurrentdirectory() {
+    return curDir;
+  },
+  setcurrentdirectory(dir) {
+    curDir = dir;
   }
 };
 var pbfile_default = PBFile;
@@ -390,12 +425,12 @@ var pbfile_default = PBFile;
       return str ? str.trimEnd() : "";
     },
     space(n) {
-      const arr = [];
-      arr.length = n;
-      arr.fill(" ");
-      return arr.join("");
+      return " ".repeat(n);
     },
-    char(value) {
+    char(n) {
+      return String.fromCharCode(n);
+    },
+    asc(value) {
       if (typeof value === "string") {
         return value.charCodeAt(0);
       } else {
@@ -855,6 +890,9 @@ var pbfile_default = PBFile;
       }
     }
     triggerevent(eventName, ...args) {
+      if (PB.right(eventName, 1) === "!") {
+        eventName = eventName.substring(0, eventName.length - 1);
+      }
       PB.triggerevent(this, eventName, ...args);
     }
     postevent(eventName, ...args) {
@@ -895,7 +933,6 @@ var pbfile_default = PBFile;
     destructor() {
     }
   }
-  root.powerobject = powerobject;
   class pbcursor extends powerobject {
     constructor(key, args, db) {
       this.key = key;
@@ -1116,19 +1153,35 @@ var pbfile_default = PBFile;
       if (!attr.text) {
         attr.text = "";
       }
+      if (attr.x === void 0) {
+        attr.x = 0;
+      }
+      if (attr.y === void 0) {
+        attr.y = 0;
+      }
       this.width = attr.width;
       this.height = attr.height;
       const { events } = options;
-      const key = events ? events["create"] : null;
+      let key = events ? events["create"] : null;
+      if (key === null && attr.name) {
+        key = attr.name + "_create";
+      }
       if (key) {
         let win = this;
         while (win && !win[key] && win.parent) {
           win = win.parent;
         }
-        win[key].apply(this);
-      } else {
-        this.create();
+        if (win[key]) {
+          if (!attr.events) {
+            attr.events = { "create": key };
+          } else {
+            attr.events["create"] = key;
+          }
+          win[key].apply(this);
+          return;
+        }
       }
+      this.create();
     }
     get tag() {
       const attr = this._pbprops;
@@ -1264,6 +1317,44 @@ var pbfile_default = PBFile;
       }
       return actl;
     }
+    //控件完成创建后操作dom
+    pbattributes() {
+      const attr = this._pbprops;
+      if (!attr.events) return;
+      let control = this.raw();
+      if (control) {
+        if (attr.events["pbm_keyup"]) {
+          control.onkeyup = (e) => {
+            const { key, flag } = toPBKeyFlag(e);
+            this.postevent("pbm_keyup", key, flag, e);
+          };
+        }
+        if (attr.events["pbm_keydown"]) {
+          control.onkeydown = (e) => {
+            const { key, flag } = toPBKeyFlag(e);
+            this.postevent("pbm_keydown", key, flag, e);
+          };
+        }
+        if (attr.events["pbm_size"]) {
+          let lastWidth, lastHeight, lastTime;
+          let rt;
+          const resizeObserver = new ResizeObserver((entries, observer) => {
+            const width = this.width;
+            const height = this.height;
+            if (rt) clearTimeout(rt);
+            if (lastHeight !== height || lastWidth !== width || /* @__PURE__ */ new Date() - lastTime > 1e3) {
+              rt = setTimeout(() => {
+                lastTime = /* @__PURE__ */ new Date();
+                lastWidth = width;
+                lastHeight = height;
+                this.triggerevent("pbm_size", 0, width, height);
+              }, 15);
+            }
+          });
+          resizeObserver.observe(control);
+        }
+      }
+    }
   }
   class userobject extends windowobject {
     toUI(options) {
@@ -1310,22 +1401,26 @@ var pbfile_default = PBFile;
       const attr = this._pbprops;
       let actl = super.toUI(options);
       delete actl.tpl;
+      actl.style.display = "flex";
+      actl.style.flexDirection = "column";
       actl.type = "tabs";
       actl.mountOnEnter = false;
       actl.activeKey = "${" + this._id + "_values.activeKey|toInt}";
       if (attr.selectedtab !== void 0) {
         let index = parseInt(attr.selectedtab);
-        if (index > 0)
-          index = index - 1;
+        if (index > 0) index = index - 1;
         options.page.data[this._id + "_values.activeKey"] = index;
         this.selectedtab = index + 1;
       }
       const childs = actl.tabs = [];
       for (const c of this.control) {
         let ui = c.toUI(options);
-        ui.tab.style.height = "calc(100% - 31px)";
+        ui.tab.style.height = "100%";
         ui.tab.style.width = "100%";
-        ui.tab.style.top = 31;
+        ui.tab.style.left = 0;
+        ui.tab.style.top = 0;
+        ui.tab.style.position = "relative";
+        ui.tab.style.padding = 0;
         childs.push(ui);
       }
       if (options.js && attr.events && attr.events["selectionchanged"]) {
@@ -1346,6 +1441,23 @@ var pbfile_default = PBFile;
         };
       }
       return actl;
+    }
+    pbattributes() {
+      super.pbattributes();
+      const attr = this._pbprops;
+      let control = this.raw();
+      if (!control) return;
+      let content = control.querySelector(".cxd-Tabs-content");
+      if (content) {
+        content.style.flex = "1";
+        content.style.display = "flex";
+        content.style.padding = "0px";
+        for (let i = 0; i < content.children.length; i++) {
+          let child = content.children[i];
+          child.style.flex = "1";
+          child.style.padding = "0px";
+        }
+      }
     }
     selecttab(index) {
       if (index > 0 && index <= this.control.length) {
@@ -1732,7 +1844,45 @@ var pbfile_default = PBFile;
           }
         };
       }
+      this.setfocus = () => {
+        let control = this.raw();
+        if (!control) return;
+        let input = control.querySelector("input");
+        if (input) {
+          return input.focus();
+        }
+      };
       return actl;
+    }
+    selecttext(start, length) {
+      let control = this.raw();
+      if (!control) return;
+      let input = control.querySelector("input");
+      if (input) {
+        return input.setSelectionRange(start - 1, start + length - 1);
+      }
+      return -1;
+    }
+    pbattributes() {
+      const attr = this._pbprops;
+      if (!attr.events) return;
+      let control = this.raw();
+      if (!control) return;
+      let input = control.querySelector("input");
+      if (input) {
+        if (attr.events["pbm_keyup"]) {
+          input.onkeyup = (e) => {
+            const { key, flag } = toPBKeyFlag(e);
+            this.postevent("pbm_keyup", key, flag, e);
+          };
+        }
+        if (attr.events["pbm_keydown"]) {
+          input.onkeydown = (e) => {
+            const { key, flag } = toPBKeyFlag(e);
+            this.postevent("pbm_keydown", key, flag, e);
+          };
+        }
+      }
     }
     // set placeholder(value) {
     //   const attr = this._pbprops;
@@ -1834,8 +1984,7 @@ var pbfile_default = PBFile;
     // 处理样式
     pbattributes() {
       let control = this.raw();
-      if (!control)
-        return;
+      if (!control) return;
       let dt = control.querySelector(".cxd-DatePicker");
       const attr = this._pbprops;
       if (dt) {
@@ -2017,8 +2166,22 @@ var pbfile_default = PBFile;
       actl.type = "radios";
       actl.name = "radios";
       actl.options = [{ label: attr.text, value: attr.name }];
-      if (attr.options) {
-        this.rvalue = attr.options[0].value;
+      this.rvalue = attr.name;
+      this._id = "radios";
+      if (options.js && attr.events && attr.events["clicked"]) {
+        const inst = this;
+        actl.onEvent = {
+          "change": {
+            "actions": [
+              {
+                "actionType": "custom",
+                "script": () => {
+                  inst.postevent("clicked");
+                }
+              }
+            ]
+          }
+        };
       }
       return actl;
     }
@@ -2086,8 +2249,7 @@ var pbfile_default = PBFile;
     }
     pbattributes() {
       let control = this.raw();
-      if (!control)
-        return;
+      if (!control) return;
       let dt = control.querySelector(".cxd-Select");
       const attr = this._pbprops;
       if (dt) {
@@ -2210,6 +2372,7 @@ var pbfile_default = PBFile;
   function addDWProperties(dwCls) {
     const p = dwCls.prototype;
     p.accepttext = function() {
+      return 1;
     };
     p.settransobject = function(db) {
       return this._dw.setTransObject(db);
@@ -2309,16 +2472,16 @@ var pbfile_default = PBFile;
       return this._dw.getSelectedRows(...arguments);
     };
     p.sharedata = function(dwsecondary) {
-      return this._dw.shareData(...arguments);
+      return this._dw.shareData(dwsecondary._dw);
     };
     p.sharedataoff = function() {
       return this._dw.shareDataOff(...arguments);
     };
     p.rowsmove = function(startrow, endrow, movebuffer, targetdw, beforerow, targetbuffer) {
-      return this._dw.rowsMove(...arguments);
+      return this._dw.rowsMove(startrow, endrow, movebuffer, targetdw._dw, beforerow, targetbuffer);
     };
     p.rowscopy = function(startrow, endrow, copybuffer, targetdw, beforerow, targetbuffer) {
-      return this._dw.rowsCopy(...arguments);
+      return this._dw.rowsCopy(startrow, endrow, copybuffer, targetdw._dw, beforerow, targetbuffer);
     };
     p.rowsdiscard = function(startrow, endrow, buffer = DWBuffer.Primary) {
       return this._dw.rowsDiscard(...arguments);
@@ -2417,13 +2580,11 @@ var pbfile_default = PBFile;
       actl.type = "datawindow";
       actl.dataObjectURI = attr.dataobject;
       if (attr.hscrollbar === false) {
-        if (!actl.option)
-          actl.option = {};
+        if (!actl.option) actl.option = {};
         Object.assign(actl.option, { showHScrollBar: false });
       }
       if (attr.vscrollbar === false) {
-        if (!actl.option)
-          actl.option = {};
+        if (!actl.option) actl.option = {};
         Object.assign(actl.option, { showVScrollBar: false });
       }
       if (attr.border === false || attr.border === "false") {
@@ -2667,7 +2828,6 @@ var pbfile_default = PBFile;
       this.setvalues("source", data);
     }
   }
-  root.nav = nav;
   class treeview extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
@@ -2675,13 +2835,15 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "input-tree";
       actl.style.display = "flex";
+      actl.heightAuto = true;
+      actl.virtualThreshold = 5e4;
       options.page.data[this._id] = {
         "source": attr.source
       };
       this.itemValues = [];
       this.itemSource = [];
       actl.source = `\${${this._id}_values.source}`;
-      if (options.js && attr.events && attr.events["change"]) {
+      if (options.js && attr.events && (attr.events["doubleclicked"] || attr.events["clicked"])) {
         const inst = this;
         actl.onEvent = {
           "change": {
@@ -2689,7 +2851,24 @@ var pbfile_default = PBFile;
               {
                 "actionType": "custom",
                 "script": (ev, ev1, event, ev3) => {
-                  inst.triggerevent("change", event.data.value, event.data);
+                  const value = event.data.value;
+                  if (attr.events["doubleclicked"]) {
+                    if (!inst._eventData) {
+                      inst._eventData = { last: Date.now(), value };
+                    } else if (inst._eventData.value === value) {
+                      if (Date.now() - inst._eventData.last < 300) {
+                        inst.triggerevent("doubleclicked", value, event.data);
+                        inst._eventData.last = 0;
+                      } else {
+                        inst._eventData.last = Date.now();
+                      }
+                    } else {
+                      inst._eventData = { last: Date.now(), value };
+                    }
+                  }
+                  if (attr.events["clicked"]) {
+                    inst.triggerevent("clicked", value, event.data);
+                  }
                 }
               }
             ]
@@ -2700,14 +2879,15 @@ var pbfile_default = PBFile;
     }
     pbattributes() {
       let control = this.raw();
-      if (!control)
-        return;
+      if (!control) return;
       let dt = control.querySelector(".cxd-TreeControl");
       const attr = this._pbprops;
       if (dt) {
         dt.style.padding = "0px";
         dt.style.paddingRight = "0px";
         dt.style.width = "100%";
+        dt.style.height = "100%";
+        dt.style.overflow = "auto";
       }
       let tree = control.querySelector(".cxd-Tree");
       if (tree) {
@@ -2725,8 +2905,13 @@ var pbfile_default = PBFile;
     get source() {
       return this.getvalues("source");
     }
-    getitem(handle) {
-      return this.itemValues[handle - 1];
+    getitem(handle, item) {
+      if (handle > 0 && handle <= this.itemValues.length) {
+        let obj = this.itemValues[handle - 1];
+        Object.assign(item, obj);
+        return obj;
+      }
+      return -1;
     }
     insertitemlast(handle, item) {
       if (typeof handle === "number") {
@@ -2758,7 +2943,7 @@ var pbfile_default = PBFile;
     expandall(itemhandle) {
     }
   }
-  root.treeview = treeview;
+  root.powerobject = powerobject;
   root.userobject = userobject;
   root.pbwindow = pbwindow;
   root.windowobject = windowobject;
@@ -2776,4 +2961,6 @@ var pbfile_default = PBFile;
   root.hprogressbar = hprogressbar;
   root.datawindow = datawindow;
   root.datastore = datastore;
+  root.treeview = treeview;
+  root.nav = nav;
 })(typeof window !== "undefined" ? window : null);

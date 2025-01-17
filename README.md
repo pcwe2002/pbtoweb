@@ -47,19 +47,27 @@ npm uninstall pbtoweb -g
 npm i pbtoweb -g
 ```   
 
-3. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，pbldump在安装的pbtoweb目录中，目录可以通过命令`npm config get prefix` 查看
-4. 如果要转化单独的窗口，输入命令
-```shell
-pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
-```
-如需转换该窗口和关联对象
+3. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，pbldump在安装的pbtoweb目录中
+> 目录可以通过命令`npm config get prefix` 查看
+
+4. 转换命令
+
+- 转换窗口和关联对象(推荐)
 ```shell
 pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js --r
 ```
-如需转换所有对象
+>导出完成后，使用[单独的网页中查看](#单独网页中查看)的方式，可以快速查看效果
+
+- 要转化单独的窗口，输入命令
+```shell
+pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
+```
+
+- 转换所有对象
 ```shell
 pbtoweb convert d:/pbcode all d:/demo/page/index.js --js
 ```
+> 线上版本不支持导出所有对象，需要联系 9091178@qq.com
 
 窗口将转化为web窗口form.js, 参数说明如下：
 |参数|说明|
@@ -69,6 +77,7 @@ pbcode|pb导出的源码目录,需要包括继承的对象|
 w_test_amis|源码的窗口名或者all,为all表示导出所有对象|
 d:/w_test_amis.js|导出的文件名或者文件夹（参数为all时只找文件夹)|
 --js|导出为js窗口文件|
+--r|导出所有关联的对象|
 
 ## 单独网页中查看
 1. QQ群:836173975下载satrda,找到安装pbtoweb的目录，如：D:\Program Files\nodejs\node_modules\pbtoweb\demo
