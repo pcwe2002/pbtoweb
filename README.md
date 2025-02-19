@@ -35,6 +35,9 @@ Convert Powerbuilder UI to web Automatically.
 [http://www.satrda.com/pbtoweb](http://www.satrda.com/pbtoweb)
 
 ## 使用说明：
+
+### 安装NodeJS
+
 1. 如未安装nodejs, 需要安装nodejs， 可以 https://nodejs.org/en 下载安装
 2. 进入命令行窗口cmd, 输入以下命令安装pbtoweb
 
@@ -46,24 +49,27 @@ npm uninstall pbtoweb -g
 ```shell
 npm i pbtoweb -g
 ```   
+### 导出pb代码
+导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，推荐每个pbl导出到单独的文件夹中, 方便转换后对象与pbl对应上
 
-3. 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，pbldump在安装的pbtoweb目录中
-> 目录可以通过命令`npm config get prefix` 查看
+如：mylib.pbl 导出到pbcode/mylib文件夹, test.pbl 导出到 pbcode/test文件夹
 
-4. 转换命令
+pbldump在安装的pbtoweb目录中,可以通过命令`npm config get prefix` 查看安装目录
 
-- 转换窗口和关联对象(推荐)
+### 转换代码
+转换代码有几下3种方式，推荐使用第1种进行转换
+1. 转换窗口和关联对象(推荐)
 ```shell
 pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js --r
 ```
 >导出完成后，使用[单独的网页中查看](#单独网页中查看)的方式，可以快速查看效果
 
-- 要转化单独的窗口，输入命令
+2. 转化单独的窗口，输入命令
 ```shell
 pbtoweb convert d:/pbcode w_test_amis d:/demo/page/w_test_amis.js --js
 ```
 
-- 转换所有对象
+3. 转换所有对象
 ```shell
 pbtoweb convert d:/pbcode all d:/demo/page/index.js --js
 ```

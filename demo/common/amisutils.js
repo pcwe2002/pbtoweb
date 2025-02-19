@@ -296,8 +296,10 @@ if (!window.getQueryString) {
   window._pbdwdefine = true;
 
   const config = window.baseConfig || parent.baseConfig;
-  axios.defaults.baseURL = config.api;
-
+  if (config) {
+    axios.defaults.baseURL = config.api;
+  }
+  
   let db = {
     sqls:[],
     async retrieveDW(sql,...arg) {
@@ -420,7 +422,7 @@ if (!window.getQueryString) {
 
           const dwEvent = ['Clicked','ItemChanged','ItemFocusChanged',
             'RowFocusChanged','ButtonClicked', 'DropDownSelected', 'DoubleClicked',
-            'ToolbarChanged','EditChanged', 'Enter', 'KeyDown', 'LoseFocus'];
+            'ToolbarChanged','RightButtonClicked', 'EditChanged', 'Enter', 'KeyDown', 'LoseFocus'];
           for (let i = 0; i < dwEvent.length; ++i) {
             const onEvent = 'on' + dwEvent[i];
             if (props.$schema[onEvent]) {
@@ -607,32 +609,57 @@ if (!window.getQueryString) {
             }
           }
 
-          if (H5UI && H5UI.ElementResizeDetectorMaker) {
-              const erd = new H5UI.ElementResizeDetectorMaker();
-              const targetEl = page.root;
-              erd.listenTo(page.root, (evt) => {
-                if (erd.rt) { clearTimeout(this.rt); }
-                if (erd.lastHeight !== targetEl.clientHeight ||
-                  erd.lastWidth !== targetEl.clientWidth || (new Date() - erd.lastTime > 1000)) {
-                  // console.log(this.key, this.lastHeight, targetEl.clientHeight, this.lastWidth, targetEl.clientWidth);
-                  erd.rt = setTimeout(() => {
-                    //this.reload();
-                    if (typeof page.onResize === 'function') {
-                      try {
-                        page.onResize(0, targetEl.clientWidth, targetEl.clientHeight);
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }
+          // if (H5UI && H5UI.ElementResizeDetectorMaker) {
+          //     const erd = new H5UI.ElementResizeDetectorMaker();
+          //     const targetEl = page.root;
+          //     erd.listenTo(page.root, (evt) => {
+          //       if (erd.rt) { clearTimeout(this.rt); }
+          //       if (erd.lastHeight !== targetEl.clientHeight ||
+          //         erd.lastWidth !== targetEl.clientWidth || (new Date() - erd.lastTime > 1000)) {
+          //         // console.log(this.key, this.lastHeight, targetEl.clientHeight, this.lastWidth, targetEl.clientWidth);
+          //         erd.rt = setTimeout(() => {
+          //           //this.reload();
+          //           if (typeof page.onResize === 'function') {
+          //             try {
+          //               page.onResize(0, targetEl.clientWidth, targetEl.clientHeight);
+          //             } catch (e) {
+          //               console.error(e);
+          //             }
+          //           }
 
-                    erd.lastHeight = targetEl.clientHeight;
-                    erd.lastWidth = targetEl.clientWidth;
-                    erd.lastTime = new Date();
-                    delete erd.rt;
-                  }, 10);
+          //           erd.lastHeight = targetEl.clientHeight;
+          //           erd.lastWidth = targetEl.clientWidth;
+          //           erd.lastTime = new Date();
+          //           delete erd.rt;
+          //         }, 10);
+          //       }
+          //     });
+          // }
+
+          const targetEl = page.root;
+          let erd = new ResizeObserver(() => {
+            if (erd.rt) { clearTimeout(this.rt); }
+            if (erd.lastHeight !== targetEl.clientHeight ||
+              erd.lastWidth !== targetEl.clientWidth || (new Date() - erd.lastTime > 1000)) {
+              // console.log(this.key, this.lastHeight, targetEl.clientHeight, this.lastWidth, targetEl.clientWidth);
+              erd.rt = setTimeout(() => {
+                //this.reload();
+                if (typeof page.onResize === 'function') {
+                  try {
+                    page.onResize(0, targetEl.clientWidth, targetEl.clientHeight);
+                  } catch (e) {
+                    console.error(e);
+                  }
                 }
-              });
-          }
+
+                erd.lastHeight = targetEl.clientHeight;
+                erd.lastWidth = targetEl.clientWidth;
+                erd.lastTime = new Date();
+                delete erd.rt;
+              }, 10);
+            }
+          });
+          erd.observe(targetEl);
         }
       },[]);
 

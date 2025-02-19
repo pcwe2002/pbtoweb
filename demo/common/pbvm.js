@@ -1,4 +1,14 @@
 // pbvm/pbattr.js
+var MouseStyle = {
+  "hourglass!": "wait",
+  "arrow!": "default",
+  "cross!": "crosshair",
+  "sizens!": "ns-resize",
+  "sizenesw!": "nesw-resize",
+  "sizewe!": "ew-resize",
+  "sizenwse!": "nwse-resize",
+  "uparrow!": "n-resize"
+};
 function attrToMinMax(value) {
   value = value.substr(1, value.length - 2);
   const values = value.split("~~");
@@ -40,30 +50,29 @@ function attrToInt(value) {
   return value;
 }
 function addTextProperty(obj, page) {
-  let _text;
+  let _text2;
   Object.defineProperties(obj, {
     "text": {
       enumerable: true,
       configurable: true,
       set: (value) => {
-        const props = page.getProps();
-        props.store.changeValue(obj._id, value);
-        _text = value;
+        obj.setvalues("text", !value);
+        _text2 = value;
         setTimeout(() => {
-          _text = void 0;
+          _text2 = void 0;
         }, 30);
       },
       get: () => {
-        if (_text !== void 0) {
-          return _text;
+        if (_text2 !== void 0) {
+          return _text2;
         }
-        const data = page.getProps().data;
-        return data[obj._id];
+        return obj.getvalues("text");
       }
     }
   });
 }
 function addEnabledProperty(obj, page) {
+  let tmpValue;
   Object.defineProperties(obj, {
     "enabled": {
       enumerable: true,
@@ -71,11 +80,17 @@ function addEnabledProperty(obj, page) {
       set: (value) => {
         const props = page.getProps();
         props.store.changeValue(`disabled.${obj._id}`, !value);
+        tmpValue = value;
+        setTimeout(() => {
+          _text = void 0;
+        }, 30);
       },
       get: () => {
-        const data = page.getProps().data;
-        const key = obj._id;
-        const disabled = data.disabled[key];
+        if (tmpValue !== void 0) {
+          return tmpValue;
+        }
+        const props = page.getProps();
+        const disabled = props.store.data[`disabled.${obj._id}`];
         return !disabled;
       }
     }
@@ -192,6 +207,28 @@ function addPositionProperty(obj, dom, nofocus = false) {
         const v = getDom().style["color"];
         return v;
       }
+    },
+    "pointer": {
+      enumerable: true,
+      configurable: true,
+      set: (value) => {
+        value = value.toLowerCase();
+        let style = MouseStyle[value];
+        if (style) {
+          getDom().style["cursor"] = style;
+        } else {
+          getDom().style["cursor"] = value;
+        }
+      },
+      get: () => {
+        const v = getDom().style["cursor"];
+        for (const key in MouseStyle) {
+          if (MouseStyle[key] === v) {
+            return key;
+          }
+        }
+        return v;
+      }
     }
   });
   obj.resize = function(width, height) {
@@ -201,6 +238,25 @@ function addPositionProperty(obj, dom, nofocus = false) {
   obj.move = (x, y) => {
     obj.x = x;
     obj.y = y;
+  };
+  obj.setposition = (tag) => {
+    switch (tag) {
+      case "totop!":
+      case "topmost!":
+        getDom().style["zIndex"] = 100;
+        break;
+      case "tobottom!":
+        getDom().style["zIndex"] = -1;
+        break;
+    }
+  };
+  obj.pointerx = () => {
+    const rect = getDom().getBoundingClientRect();
+    return integer(globalKeyMouse.clientX - rect.left);
+  };
+  obj.pointery = () => {
+    const rect = getDom().getBoundingClientRect();
+    return integer(globalKeyMouse.clientY - rect.top);
   };
   if (!nofocus) {
     obj.setfocus = () => {
@@ -294,6 +350,25 @@ function toPBKeyFlag(e) {
   flag = flag + ctrlKey ? 2 : 0;
   const k = keyConvert(key);
   return { flag, key: k };
+}
+function toPBMouseEventArgs(event, control) {
+  const rect = control.getBoundingClientRect();
+  const xpos = event.clientX - rect.left;
+  const ypos = event.clientY - rect.top;
+  let flags = 1;
+  if (event.button === 2) {
+    flags += 2;
+  }
+  if (event.shiftKey) {
+    flags += 4;
+  }
+  if (event.ctrlKey) {
+    flags += 8;
+  }
+  if (event.button === 1) {
+    flags += 16;
+  }
+  return { flags, xpos, ypos };
 }
 
 // pbvm/pbdate.js
@@ -399,12 +474,37 @@ var PBFile = {
 };
 var pbfile_default = PBFile;
 
+// pbvm/pbother.js
+var PBUtil = {
+  generateuuid() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == "x" ? r : r & 3 | 8;
+      return v.toString(16);
+    });
+  },
+  setpbparm(parameter) {
+    message.stringparm = void 0;
+    message.doubleparm = void 0;
+    message.powerobjectparm = void 0;
+    const ptype = typeof parameter;
+    if (ptype === "string") {
+      message.stringparm = parameter;
+    } else if (ptype === "number") {
+      message.doubleparm = parameter;
+    } else {
+      message.powerobjectparm = parameter;
+    }
+  }
+};
+var pbother_default = PBUtil;
+
 // pbvm/pbvm.js
 (function(root) {
   root = root || global;
   if (root.powerobject) {
     return;
   }
+  root.globalKeyMouse = {};
   let PB = {
     create(cls, options, parent2) {
       const a = new cls(options, parent2);
@@ -585,10 +685,15 @@ var pbfile_default = PBFile;
     randomize(n) {
       return n;
     },
+    garbagecollect() {
+    },
     async triggerevent(obj, func, ...args) {
       let key = null;
       if (obj._pbprops && obj._pbprops.events) {
         key = obj._pbprops.events[func];
+        if (obj._pbprops.events[key]) {
+          key = obj._pbprops.events[key];
+        }
       }
       let f;
       let win = obj;
@@ -608,14 +713,23 @@ var pbfile_default = PBFile;
       }
     },
     // 实现事件super的功能，先找窗口和继承窗口中是否有这个事件，如果有就执行，如果没有，执行对象的事件
-    async superevent({ ctl, pro, name, func }, ...arg) {
-      const p = pro.__proto__;
-      if (p[name]) {
-        await p[name].call(this, { ctl, pro: p, name, func }, ...arg);
-      } else if (ctl[func]) {
-        await ctl[func].call(ctl, { ctl, pro: p, name, func }, ...arg);
-      }
-    },
+    // 注意：如果窗口使用自定义对象，自定义对象也有这个事件，那么窗口事件的名称需要和自定义对象的名称一样，自定义对象本身的事件方法才能执行
+    // async superevent( {ctl, pro, name, func}, ...arg) {
+    //   const p = pro.__proto__;
+    //     if (p[name]) {
+    //       await p[name].call(this, { ctl, pro: p, name, func }, ...arg);
+    //     } else if (ctl[func]) {
+    //       await ctl[func].call(ctl, { ctl, pro: p, name, func }, ...arg);
+    //     } else {
+    //       // func:pbm_size , events: {pbm_size:onresize}
+    //       if (ctl._pbprops && ctl._pbprops.events) {
+    //         const key = obj._pbprops.events[func]
+    //         if (ctl[key]) {
+    //           await ctl[key].call(ctl, { ctl, pro: p, name, func }, ...arg);
+    //         }
+    //       }
+    //     }
+    // },
     setnull() {
     },
     pixelstounits(pixels, type) {
@@ -646,21 +760,29 @@ var pbfile_default = PBFile;
       return uint8Array;
     }
   };
+  PB.message = {};
+  PB.posa = PB.pos;
+  PB.lena = PB.len;
+  PB.mida = PB.mid;
+  PB.lefta = PB.left;
+  PB.righta = PB.right;
   Object.assign(PB, pbdate_default);
   Object.assign(PB, pbfile_default);
-  const mouseStyle = {
+  window.PBUtil = pbother_default;
+  const MouseStyle2 = {
     "hourglass!": "wait",
     "arrow!": "default",
     "cross!": "crosshair",
-    "sizens!": "se-resize",
-    "sizenesw!": "se-resize",
-    "sizewe!": "se-resize",
-    "sizenwse!": "se-resize",
+    "sizens!": "ns-resize",
+    "sizenesw!": "nesw-resize",
+    "sizewe!": "ew-resize",
+    "sizenwse!": "nwse-resize",
     "uparrow!": "n-resize"
   };
   PB.setpointer = function(style) {
+    console.warn("pbvm setpointer\u5728\u51FD\u6570\u7ED3\u675F\u8981\u81EA\u52A8\u6062\u590D\u9F20\u6807\uFF0Cjs\u4E0D\u652F\u6301\uFF0C\u8981\u624B\u52A8\u6062\u590D");
     const key = style.toLowerCase();
-    const m = mouseStyle[key];
+    const m = MouseStyle2[key];
     if (m) {
       document.body.style.cursor = m;
     } else {
@@ -672,6 +794,37 @@ var pbfile_default = PBFile;
   };
   PB.handle = function(style) {
     console.warn("pbvm handle\u51FD\u6570\u4E0D\u652F\u6301");
+  };
+  PB.keydown = function(keycode) {
+    keycode = keycode.toLowerCase();
+    switch (keycode) {
+      case "keyleftbutton!":
+        return globalKeyMouse.buttons === 1;
+      case "keymiddlebutton!":
+        return globalKeyMouse.buttons === 1;
+      case "keyrightbutton!":
+        return globalKeyMouse.buttons === 2;
+      case "Keyshift!":
+        return globalKeyMouse.shiftKey;
+      case "keycontrol!":
+        return globalKeyMouse.ctrlKey;
+      case "keyalt!":
+        return globalKeyMouse.altKey;
+    }
+    const { key } = toPBKeyFlag(globalKeyMouse);
+    return key === keycode;
+  };
+  PB.mouseMoveUp = function(target, movefunc, upfunc) {
+    target.removeEventListener("mouseup", target.xEvtUp);
+    target.removeEventListener("mousemove", movefunc);
+    target.addEventListener("mousemove", movefunc);
+    const t = target;
+    t.xEvtUp = (evt) => {
+      target.removeEventListener("mousemove", movefunc);
+      target.removeEventListener("mouseup", target.xEvtUp);
+      upfunc(evt);
+    };
+    target.addEventListener("mouseup", target.xEvtUp);
   };
   function setAmisRoot(amis) {
     if (!amis) {
@@ -693,7 +846,8 @@ var pbfile_default = PBFile;
   function messagebox(title, text, icon2, button = "OK!") {
     const amis = amisRequire("amis");
     return new Promise((resolve) => {
-      if (button === "OK!") {
+      const key = button.toLowerCase();
+      if (key === "ok!") {
         amis.alert(text, title);
         setTimeout(() => {
           let footer = document.querySelector(".cxd-Modal-footer");
@@ -706,10 +860,10 @@ var pbfile_default = PBFile;
           };
           cb.addEventListener("click", f);
         }, 10);
-      } else if (button === "YesNo!") {
+      } else if (key === "yesno!") {
         const p = amis.confirm(text, title, { confirmBtnLevel: "primary", confirmText: "\u662F", cancelText: "\u5426" });
         p.then((rtn) => {
-          resolve(rtn ? 1 : 0);
+          resolve(rtn ? 1 : 2);
         });
       } else {
         const p = amis.confirm(text, title, { confirmBtnLevel: "primary" });
@@ -730,18 +884,8 @@ var pbfile_default = PBFile;
     env.screenwidth = window.innerWidth;
   }
   PB.getenvironment = getenvironment;
-  PB.openwithparm = function(windowvar, parameter) {
-    PB.message.stringparm = void 0;
-    PB.message.doubleparm = void 0;
-    PB.message.powerobjectparm = void 0;
-    const ptype = typeof parameter;
-    if (ptype === "string") {
-      PB.message.stringparm = parameter;
-    } else if (ptype === "number") {
-      PB.message.doubleparm = parameter;
-    } else {
-      PB.message.powerobjectparm = parameter;
-    }
+  PB.openwithparm = function(windowvar, parameter, root2) {
+    pbother_default.setpbparm(parameter);
     const w = new windowvar();
     let windowtype = w._pbprops.windowtype;
     const modalOptions = {
@@ -760,8 +904,8 @@ var pbfile_default = PBFile;
       modalOptions.titlebar = true;
     }
     let content;
-    if (parameter && parameter.root) {
-      content = parameter.root;
+    if (root2) {
+      content = root2;
       windowvar.instance = w;
       w.show(content);
       return;
@@ -772,23 +916,13 @@ var pbfile_default = PBFile;
     return new Promise((resolve) => {
       d.show((returnvalue) => {
         setAmisRoot();
-        PB.message.stringparm = void 0;
-        PB.message.doubleparm = void 0;
-        PB.message.powerobjectparm = void 0;
-        if (returnvalue !== void 0) {
-          const ptype2 = typeof returnvalue;
-          if (ptype2 === "string") {
-            PB.message.stringparm = returnvalue;
-          } else if (ptype2 === "number") {
-            PB.message.doubleparm = returnvalue;
-          } else {
-            PB.message.powerobjectparm = returnvalue;
-          }
-        }
+        pbother_default.setpbparm(returnvalue);
         delete windowvar.instance;
         if (windowtype === "response!") {
           resolve(returnvalue);
         }
+      }, () => {
+        PB.closewithreturn(windowvar);
       });
       windowvar.instance = w;
       w.show(content);
@@ -797,13 +931,18 @@ var pbfile_default = PBFile;
       }
     });
   };
-  PB.closewithreturn = function(windowname, returnvalue) {
+  PB.closewithreturn = async function(windowname, returnvalue) {
     PB.message.stringparm = void 0;
     PB.message.doubleparm = void 0;
     PB.message.powerobjectparm = void 0;
     let instance = windowname;
     if (typeof windowname === "function" && typeof windowname.instance === "object") {
       instance = windowname.instance;
+    }
+    if (instance.closequery) {
+      if (await instance.closequery() === 1) {
+        return;
+      }
     }
     if (instance.onClose) {
       instance.onClose();
@@ -889,17 +1028,19 @@ var pbfile_default = PBFile;
         return this.__proto__.constructor.name;
       }
     }
-    triggerevent(eventName, ...args) {
+    async triggerevent(eventName, ...args) {
       if (PB.right(eventName, 1) === "!") {
         eventName = eventName.substring(0, eventName.length - 1);
       }
-      PB.triggerevent(this, eventName, ...args);
+      await PB.triggerevent(this, eventName, ...args);
     }
     postevent(eventName, ...args) {
       setTimeout(() => {
         PB.triggerevent(this, eventName, ...args);
       }, 0);
     }
+    // 实现事件super的功能，先找窗口和继承窗口中是否有这个事件，如果有就执行，如果没有，执行对象的事件
+    // 注意：如果窗口使用自定义对象，自定义对象也有这个事件，那么窗口事件的名称需要和自定义对象的名称一样，自定义对象本身的事件方法才能执行
     async superevent(f, ...arg) {
       if (arg.length > 0) {
         const { ctl, pro, name, func } = arg[0];
@@ -908,6 +1049,11 @@ var pbfile_default = PBFile;
             await f.call(this, ...arg);
           } else if (ctl[func]) {
             await ctl[func].call(ctl, ...arg);
+          } else if (ctl._pbprops && ctl._pbprops.events) {
+            const key = ctl._pbprops.events[func];
+            if (key && ctl[key]) {
+              await ctl[key].call(ctl, ...arg);
+            }
           }
           return;
         }
@@ -915,6 +1061,7 @@ var pbfile_default = PBFile;
       await f.call(this, ...arg);
     }
     _join_props(props) {
+      if (!props) return;
       if (props && props.name) {
         this.name = props.name;
       }
@@ -935,6 +1082,7 @@ var pbfile_default = PBFile;
   }
   class pbcursor extends powerobject {
     constructor(key, args, db) {
+      super({});
       this.key = key;
       this.db = db;
       this.args = args;
@@ -1212,9 +1360,23 @@ var pbfile_default = PBFile;
     }
     destroy() {
     }
+    getparent() {
+      return this.parent;
+    }
+    parentwindow() {
+      let p = this.parent;
+      while (p) {
+        if (p.typeof() === "window!") {
+          return p;
+        }
+        p = p.parent;
+      }
+      return null;
+    }
     toUI(options, addprop = true) {
       const attr = this._pbprops;
       let uiKey = attr.name;
+      this._uiOptions = options;
       if (options.win) {
         const id = options.win.getnewid();
         uiKey = attr.name + "_" + id;
@@ -1233,7 +1395,7 @@ var pbfile_default = PBFile;
           position: "absolute",
           whiteSpace: "nowrap"
         },
-        disabledOn: "disabled." + uiKey
+        disabledOn: `disabled.${uiKey}`
       };
       this.name = attr.name;
       if (attr.textsize) {
@@ -1325,14 +1487,42 @@ var pbfile_default = PBFile;
       if (control) {
         if (attr.events["pbm_keyup"]) {
           control.onkeyup = (e) => {
+            globalKeyMouse = e;
             const { key, flag } = toPBKeyFlag(e);
-            this.postevent("pbm_keyup", key, flag, e);
+            this.triggerevent("pbm_keyup", key, flag, e);
+            globalKeyMouse = {};
           };
         }
         if (attr.events["pbm_keydown"]) {
           control.onkeydown = (e) => {
+            globalKeyMouse = e;
             const { key, flag } = toPBKeyFlag(e);
-            this.postevent("pbm_keydown", key, flag, e);
+            this.triggerevent("pbm_keydown", key, flag, e);
+            globalKeyMouse = {};
+          };
+        }
+        if (attr.events["pbm_mousemove"]) {
+          control.onmousemove = (e) => {
+            globalKeyMouse = e;
+            const { flag, xpos, ypos } = toPBMouseEventArgs(e, control);
+            this.triggerevent("pbm_mousemove", flag, xpos, ypos, e);
+            globalKeyMouse = {};
+          };
+        }
+        if (attr.events["pbm_lbuttondown"]) {
+          control.onmousedown = (e) => {
+            globalKeyMouse = e;
+            const { flag, xpos, ypos } = toPBMouseEventArgs(e, control);
+            this.triggerevent("pbm_lbuttondown", flag, xpos, ypos, e);
+            globalKeyMouse = {};
+          };
+        }
+        if (attr.events["pbm_lbuttonup"]) {
+          control.onmouseup = (e) => {
+            globalKeyMouse = e;
+            const { flag, xpos, ypos } = toPBMouseEventArgs(e, control);
+            this.triggerevent("pbm_lbuttonup", flag, xpos, ypos, e);
+            globalKeyMouse = {};
           };
         }
         if (attr.events["pbm_size"]) {
@@ -1410,7 +1600,7 @@ var pbfile_default = PBFile;
         let index = parseInt(attr.selectedtab);
         if (index > 0) index = index - 1;
         options.page.data[this._id + "_values.activeKey"] = index;
-        this.selectedtab = index + 1;
+        this._selectedtab = index + 1;
       }
       const childs = actl.tabs = [];
       for (const c of this.control) {
@@ -1422,6 +1612,7 @@ var pbfile_default = PBFile;
         ui.tab.style.position = "relative";
         ui.tab.style.padding = 0;
         childs.push(ui);
+        this._addTabPageTitle(c);
       }
       if (options.js && attr.events && attr.events["selectionchanged"]) {
         const inst = this;
@@ -1440,6 +1631,7 @@ var pbfile_default = PBFile;
           }
         };
       }
+      this._addSelectedTabProperty();
       return actl;
     }
     pbattributes() {
@@ -1461,10 +1653,137 @@ var pbfile_default = PBFile;
     }
     selecttab(index) {
       if (index > 0 && index <= this.control.length) {
-        let oldIndex = this.selectedtab;
-        this.selectedtab = index;
+        let oldIndex = this._selectedtab;
+        this._selectedtab = index;
         this.setvalues("activeKey", index - 1);
         this.postevent("selectionchanged", oldIndex, index);
+      }
+    }
+    _addTabPageTitle(tabpage) {
+      let inst = this;
+      Object.defineProperties(tabpage, {
+        "text": {
+          enumerable: true,
+          configurable: true,
+          set: (value) => {
+            let index = inst.control.findIndex((item) => item === tabpage);
+            if (index >= 0) {
+              const { win } = inst._uiOptions;
+              let mytab = win.amisScoped.getComponentByName(`p1.${inst._id}`);
+              mytab.handleEdit(index, value);
+            }
+          },
+          get: () => {
+            let index = inst.control.findIndex((item) => item === tabpage);
+            if (index >= 0) {
+              const { win } = inst._uiOptions;
+              let mytab = win.amisScoped.getComponentByName(`p1.${inst._id}`);
+              return mytab.state.localTabs[index].title;
+            }
+          }
+        }
+      });
+    }
+    _addSelectedTabProperty() {
+      let inst = this;
+      Object.defineProperties(this, {
+        "selectedtab": {
+          enumerable: true,
+          configurable: true,
+          set: (value) => {
+            inst.selecttab(value);
+          },
+          get: () => {
+            return inst._selectedtab;
+          }
+        }
+      });
+    }
+    opentabwithparm(...args) {
+      return new Promise((resolve, reject) => {
+        let userobjectvar, parameter, index;
+        let title = "newtab";
+        if (typeof args[2] === "string") {
+          parameter = args[1];
+          userobjectvar = window[args[2]];
+          index = args[3];
+          if (args.length > 4) {
+            title = args[4];
+          }
+        } else {
+          userobjectvar = args[0];
+          parameter = args[1];
+          index = args[2];
+          if (args.length > 3) {
+            title = args[3];
+          }
+        }
+        const { win } = this._uiOptions;
+        let mytab = win.amisScoped.getComponentByName(`p1.${this._id}`);
+        const localTabs = mytab.state.localTabs.concat();
+        if (index === void 0) {
+          index = mytab.state.localTabs.length;
+        }
+        let key = "a" + pbother_default.generateuuid().replaceAll("-", "").substring(0, 8);
+        let tabpage = new userobject({ name: key }, this);
+        let options = {
+          win,
+          page: { data: { disabled: {} } },
+          js: true
+        };
+        let tjson = tabpage.toUI(options);
+        tjson.tab.style = {
+          height: "100%",
+          width: "100%",
+          left: "0px",
+          top: "0px",
+          padding: "0px",
+          position: "relative"
+        };
+        key = tjson.tab.name;
+        let json = {
+          title,
+          body: tjson.tab
+        };
+        localTabs.splice(index - 1, 0, json);
+        mytab.setState(
+          {
+            localTabs,
+            activeKey: index - 1
+          },
+          () => {
+          }
+        );
+        let uo = win.openuserobjectwithparm(userobjectvar, parameter, {
+          name: "user" + key,
+          callback: () => {
+            this.control.push(uo);
+            this._addTabPageTitle(uo);
+            let c = this.raw().querySelector(`.${key}`);
+            c.style.flex = "1";
+            c.style.padding = "0px";
+            c.style.display = "flex";
+            let content = c.parentElement;
+            content.style.flex = "1";
+            content.style.padding = "0px";
+            let r = uo.raw();
+            r.style.padding = "0px";
+            r.style.width = "100%";
+            r.style.height = "100%";
+            c.appendChild(r);
+            resolve(uo);
+          }
+        });
+      });
+    }
+    closetab(userobjectvar) {
+      for (let index = 0; index < this.control.length; index++) {
+        if (this.control[index] === userobjectvar) {
+          this.control.splice(index, 1);
+          const { win } = this._uiOptions;
+          let mytab = win.amisScoped.getComponentByName(`p1.${this._id}`);
+          mytab.handleClose(index, false);
+        }
       }
     }
   }
@@ -1483,7 +1802,7 @@ var pbfile_default = PBFile;
     /* 系统默认事件 */
     onResize(sizetype, newwidth, newheight) {
     }
-    onOpen() {
+    async onOpen() {
     }
     onTimer() {
     }
@@ -1535,6 +1854,7 @@ var pbfile_default = PBFile;
     show(root2) {
       const amisJson = {
         type: "page",
+        name: "p1",
         cssVars: {
           "--checkbox-checkbox-default-fontSize": "",
           "--Page-body-padding": 0
@@ -1557,11 +1877,22 @@ var pbfile_default = PBFile;
       let ui = this.toUI(options);
       amisJson.body.push(ui);
       let objects = options.objects;
+      let firstResize = true;
       const page = this._page = {
         root: root2,
         onResize: (sizetype, newwidth, newheight) => {
-          this.resize(newwidth, newheight);
-          this.onResize(sizetype, newwidth, newheight);
+          if (firstResize) {
+            firstResize = false;
+            const attr = this._pbprops;
+            this.onResize(sizetype, attr.width, attr.height);
+            if (attr.width !== newwidth || attr.height !== newheight) {
+              this.resize(newwidth, newheight);
+              this.onResize(sizetype, newwidth, newheight);
+            }
+          } else {
+            this.resize(newwidth, newheight);
+            this.onResize(sizetype, newwidth, newheight);
+          }
         },
         onInit: async () => {
           let p = this._page.loadDW;
@@ -1576,7 +1907,7 @@ var pbfile_default = PBFile;
             }
             await obj.triggerevent("pbconstructor");
           }
-          this.onOpen();
+          await this.onOpen();
         }
       };
       page.inst = this;
@@ -1584,9 +1915,18 @@ var pbfile_default = PBFile;
       const amis = amisRequire("amis/embed");
       const config2 = window.baseConfig || parent.baseConfig;
       this.amisLib = amisRequire("amis");
-      this.amisScoped = amis.embed(this.root, amisJson, { data: { apiurl: config2.api, page: () => {
-        return page;
-      } } });
+      this.amisScoped = amis.embed(
+        this.root,
+        amisJson,
+        { data: { apiurl: config2.api, page: () => {
+          return page;
+        } } },
+        {
+          theme: null,
+          useMobileUI: false
+        }
+      );
+      this.amisJson = amisJson;
       setAmisRoot(amis);
     }
     showWaitting(tip) {
@@ -1610,6 +1950,40 @@ var pbfile_default = PBFile;
       if (this.root) {
         this.root.innerHTML = "";
       }
+    }
+    pbattributes() {
+      super.pbattributes();
+      let control = this.raw();
+      if (!control) return;
+      control.addEventListener("keydown", (e) => {
+        globalKeyMouse = e;
+      });
+      control.addEventListener("keyup", (e) => {
+        globalKeyMouse = {};
+      });
+    }
+    openuserobjectwithparm(userobjectvar, parameter, options) {
+      pbother_default.setpbparm(parameter);
+      const div = document.createElement("div");
+      let opts = { x: 0, y: 0, name: "", ...options };
+      let { x, y } = opts;
+      let w1 = new pbwindow({
+        name: "tmp" + Date.now(),
+        width: 300,
+        height: 300
+      });
+      w1.onOpen = () => {
+        const b = this.raw();
+        const u = uo.raw();
+        b.appendChild(u);
+        if (opts.callback) {
+          opts.callback(uo);
+        }
+      };
+      let uo = new userobjectvar({ name: opts.name, x, y }, w1);
+      w1.control = [uo];
+      w1.show(div);
+      return uo;
     }
   }
   function calculateDistance(pointA, pointB) {
@@ -1828,7 +2202,6 @@ var pbfile_default = PBFile;
       actl.value = attr.text;
       actl.inputControlClassName = `${this._id}`;
       addPlaceholderProperty(this, actl, options);
-      options.css[`.${this._id}`] = { "height": attr.height + "px!important", "padding-top": "0px!important", "padding-bottom": "0px!important" };
       if (options.js && attr.events && attr.events["modified"]) {
         const inst = this;
         actl.onEvent = {
@@ -1864,22 +2237,25 @@ var pbfile_default = PBFile;
       return -1;
     }
     pbattributes() {
-      const attr = this._pbprops;
-      if (!attr.events) return;
       let control = this.raw();
       if (!control) return;
+      const attr = this._pbprops;
+      control.style.height = `${attr.height}px`;
+      control.style.paddingTop = "0px";
+      control.style.paddingBottom = `0px`;
+      if (!attr.events) return;
       let input = control.querySelector("input");
       if (input) {
         if (attr.events["pbm_keyup"]) {
           input.onkeyup = (e) => {
             const { key, flag } = toPBKeyFlag(e);
-            this.postevent("pbm_keyup", key, flag, e);
+            this.triggerevent("pbm_keyup", key, flag, e);
           };
         }
         if (attr.events["pbm_keydown"]) {
           input.onkeydown = (e) => {
             const { key, flag } = toPBKeyFlag(e);
-            this.postevent("pbm_keydown", key, flag, e);
+            this.triggerevent("pbm_keydown", key, flag, e);
           };
         }
       }
@@ -1901,7 +2277,6 @@ var pbfile_default = PBFile;
       delete actl.tpl;
       actl.type = "textarea";
       actl.value = attr.text;
-      options.css[`.${this._id} textarea`] = { "max-height": `${attr.height}px`, "min-height": `${attr.height}px`, "resize": "none" };
       addPlaceholderProperty(this, actl, options);
       if (options.js && attr.events && attr.events["modified"]) {
         const inst = this;
@@ -1919,6 +2294,32 @@ var pbfile_default = PBFile;
         };
       }
       return actl;
+    }
+    pbattributes() {
+      super.pbattributes();
+      let control = this.raw();
+      if (!control) return;
+      let input = control.querySelector("textarea");
+      const attr = this._pbprops;
+      if (input && attr) {
+        input.style.maxHeight = `${attr.height}px`;
+        input.style.minHeight = `${attr.height}px`;
+        input.style.resize = "none";
+        if (attr.events) {
+          if (attr.events["pbm_keyup"]) {
+            input.onkeyup = (e) => {
+              const { key, flag } = toPBKeyFlag(e);
+              this.triggerevent("pbm_keyup", key, flag, e);
+            };
+          }
+          if (attr.events["pbm_keydown"]) {
+            input.onkeydown = (e) => {
+              const { key, flag } = toPBKeyFlag(e);
+              this.triggerevent("pbm_keydown", key, flag, e);
+            };
+          }
+        }
+      }
     }
   }
   class editmask extends windowobject {
@@ -2094,7 +2495,7 @@ var pbfile_default = PBFile;
             enumerable: true,
             configurable: true,
             set: (value) => {
-              const control = options.win.root.querySelector(`.${name}`);
+              const control = this.raw();
               if (control) {
                 let span = control.children[0];
                 if (span) {
@@ -2105,7 +2506,7 @@ var pbfile_default = PBFile;
               }
             },
             get: () => {
-              const control = options.win.root.querySelector(`.${name}`);
+              const control = this.raw();
               if (control) {
                 let span = control.children[0];
                 if (span) {
@@ -2405,6 +2806,9 @@ var pbfile_default = PBFile;
     p.getitemnumber = function(row, column = null) {
       return this._dw.getItem(...arguments);
     };
+    p.getitemdatetime = function(row, column = null) {
+      return this._dw.getItem(...arguments);
+    };
     p.setitemstatus = function(row, column, dwbuffer, status) {
       return this._dw.setItemsSatus(...arguments);
     };
@@ -2601,7 +3005,8 @@ var pbfile_default = PBFile;
           "doubleclicked": "onDoubleClicked",
           "toolbarchanged": "onToolbarChanged",
           "editchanged": "onEditChanged",
-          "losefocus": "onLoseFocus"
+          "losefocus": "onLoseFocus",
+          "rightbuttonclicked": "onRightButtonClicked"
         };
         const dwPBEvent = { "pbm_dwnprocessenter": "onEnter", "pbm_dwnkey": "onKeyDown" };
         for (const key in attr.events) {
@@ -2648,7 +3053,7 @@ var pbfile_default = PBFile;
     }
     set dataobject(value) {
       this._dataobject = value;
-      this._dw.dataobject = value;
+      this._dw.setDataObject(value);
     }
     get object() {
       return this._dw.object;

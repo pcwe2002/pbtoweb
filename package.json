@@ -1,6 +1,6 @@
 {
   "name": "pbtoweb",
-  "version": "1.0.22",
+  "version": "1.0.25",
   "description": "Convert Powerbuilder UI to web Automatically.",
   "bin": {
     "pbtoweb": "index.js"
