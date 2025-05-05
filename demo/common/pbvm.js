@@ -56,7 +56,8 @@ function addTextProperty(obj, page) {
       enumerable: true,
       configurable: true,
       set: (value) => {
-        obj.setvalues("text", !value);
+        const props = page.getProps();
+        props.store.changeValue(obj._id, value);
         _text2 = value;
         setTimeout(() => {
           _text2 = void 0;
@@ -66,7 +67,8 @@ function addTextProperty(obj, page) {
         if (_text2 !== void 0) {
           return _text2;
         }
-        return obj.getvalues("text");
+        const data = page.getProps().data;
+        return data[obj._id];
       }
     }
   });
@@ -304,7 +306,9 @@ function addPlaceholderProperty(obj, actl, options, direct = false) {
   } else {
     actl.placeholder = `\${${obj._id}_values.placeholder}`;
     if (attr.placeholder) {
-      options.page.data[this._id + "_values.placeholder"] = attr.placeholder;
+      options.page.data[obj._id + "_values.placeholder"] = attr.placeholder;
+    } else {
+      options.page.data[obj._id + "_values.placeholder"] = "";
     }
   }
   Object.defineProperties(obj, {
@@ -494,6 +498,42 @@ var PBUtil = {
     } else {
       message.powerobjectparm = parameter;
     }
+  },
+  showwaitting(tip) {
+    let c = this._spinnerDiv;
+    if (c) {
+      let span = c.querySelector(".cxd-Spinner-tip");
+      span.innerHTML = tip;
+      return;
+    }
+    let w = new pbwindow({
+      "name": "w_1",
+      "width": 10,
+      "height": 10
+    });
+    c = document.createElement("div");
+    this._spinnerDiv = c;
+    c.style.position = "absolute";
+    c.style.width = "100%";
+    c.style.height = "100%";
+    c.style.top = "0px";
+    c.style.left = "0px";
+    c.style.background = "none";
+    c.style.zIndex = "2000";
+    document.body.appendChild(c);
+    w.onOpen = () => {
+      const p = c.querySelector(".cxd-Page");
+      p.style.background = "none";
+      w.showWaitting(tip);
+    };
+    w.show(c);
+  },
+  closewaitting() {
+    let c = this._spinnerDiv;
+    if (c) {
+      c.remove();
+    }
+    this._spinnerDiv = void 0;
   }
 };
 var pbother_default = PBUtil;
@@ -884,8 +924,12 @@ var pbother_default = PBUtil;
     env.screenwidth = window.innerWidth;
   }
   PB.getenvironment = getenvironment;
+  PB.initroot = null;
   PB.openwithparm = function(windowvar, parameter, root2) {
     pbother_default.setpbparm(parameter);
+    if (windowvar.instance) {
+      return;
+    }
     const w = new windowvar();
     let windowtype = w._pbprops.windowtype;
     const modalOptions = {
@@ -893,6 +937,11 @@ var pbother_default = PBUtil;
       resizeable: true,
       maximized: false
     };
+    if (w._pbprops.windowtype === "response!") {
+      modalOptions.response = true;
+    } else {
+      modalOptions.response = false;
+    }
     if (w._pbprops.windowtype === "response!" || w._pbprops.resizeable === false) {
       modalOptions.resizeable = false;
     }
@@ -904,6 +953,10 @@ var pbother_default = PBUtil;
       modalOptions.titlebar = true;
     }
     let content;
+    if (!root2 && PB.initroot) {
+      root2 = PB.initroot;
+      PB.initroot = null;
+    }
     if (root2) {
       content = root2;
       windowvar.instance = w;
@@ -949,6 +1002,9 @@ var pbother_default = PBUtil;
     }
     if (instance.close) {
       instance.close(returnvalue);
+    }
+    if (typeof windowname === "function" && typeof windowname.instance === "object") {
+      delete windowname.instance;
     }
   };
   Object.assign(root, PB);
@@ -1787,7 +1843,7 @@ var pbother_default = PBUtil;
       }
     }
   }
-  class pbwindow extends windowobject {
+  class pbwindow2 extends windowobject {
     _idindex = 0;
     constructor(options) {
       super(options);
@@ -1837,6 +1893,7 @@ var pbother_default = PBUtil;
       delete actl.tpl;
       actl.type = "wrapper";
       actl.style.position = "relative";
+      actl.style.zIndex = 0;
       delete actl.style.left;
       delete actl.style.top;
       const childs = actl.body = [];
@@ -1868,7 +1925,7 @@ var pbother_default = PBUtil;
           "show": true,
           "overlay": true,
           "size": "lg",
-          "visibleOn": "${showLoading}",
+          "showOn": "${showLoading}",
           "tip": "\u52A0\u8F7D\u4E2D..."
         }],
         events: []
@@ -1922,7 +1979,7 @@ var pbother_default = PBUtil;
           return page;
         } } },
         {
-          theme: null,
+          //theme: 'antd',
           useMobileUI: false
         }
       );
@@ -1930,9 +1987,16 @@ var pbother_default = PBUtil;
       setAmisRoot(amis);
     }
     showWaitting(tip) {
+      if (!tip) {
+        tip = "\u52A0\u8F7D\u4E2D...";
+      }
       const props = this.getProps();
       props.store.changeValue("showLoading", true);
-      props.store.changeValue("spinner_tip", tip);
+      setTimeout(() => {
+        let div = this.raw().parentNode;
+        let span = div.querySelector(".cxd-Spinner-tip");
+        span.innerHTML = tip;
+      }, 0);
     }
     closeWaitting() {
       const props = this.getProps();
@@ -1967,7 +2031,7 @@ var pbother_default = PBUtil;
       const div = document.createElement("div");
       let opts = { x: 0, y: 0, name: "", ...options };
       let { x, y } = opts;
-      let w1 = new pbwindow({
+      let w1 = new pbwindow2({
         name: "tmp" + Date.now(),
         width: 300,
         height: 300
@@ -2201,7 +2265,7 @@ var pbother_default = PBUtil;
       }
       actl.value = attr.text;
       actl.inputControlClassName = `${this._id}`;
-      addPlaceholderProperty(this, actl, options);
+      addPlaceholderProperty(this, actl, options, true);
       if (options.js && attr.events && attr.events["modified"]) {
         const inst = this;
         actl.onEvent = {
@@ -2277,7 +2341,7 @@ var pbother_default = PBUtil;
       delete actl.tpl;
       actl.type = "textarea";
       actl.value = attr.text;
-      addPlaceholderProperty(this, actl, options);
+      addPlaceholderProperty(this, actl, options, true);
       if (options.js && attr.events && attr.events["modified"]) {
         const inst = this;
         actl.onEvent = {
@@ -2617,7 +2681,12 @@ var pbother_default = PBUtil;
       }
       let actl = super.toUI(options);
       delete actl.tpl;
-      actl.type = "select";
+      if (attr.allowedit) {
+        actl.type = "input-text";
+      } else {
+        actl.type = "select";
+      }
+      actl.editable = !!attr.allowedit;
       this.items = [];
       actl.source = `\${${this._id}_values.source}`;
       if (attr["item[]"]) {
@@ -2631,7 +2700,7 @@ var pbother_default = PBUtil;
       options.page.data[`${this._id}_values`] = {
         source: this.items
       };
-      if (options.js && attr.events && attr.events["selectionchanged"]) {
+      if (options.js && attr.events) {
         const inst = this;
         actl.onEvent = {
           "change": {
@@ -2640,6 +2709,7 @@ var pbother_default = PBUtil;
                 "actionType": "custom",
                 "script": () => {
                   inst.postevent("selectionchanged");
+                  inst.postevent("modified");
                 }
               }
             ]
@@ -2651,8 +2721,29 @@ var pbother_default = PBUtil;
     pbattributes() {
       let control = this.raw();
       if (!control) return;
-      let dt = control.querySelector(".cxd-Select");
       const attr = this._pbprops;
+      if (attr.allowedit) {
+        control.style.height = `${attr.height}px`;
+        control.style.paddingTop = "0px";
+        control.style.paddingBottom = `0px`;
+        if (!attr.events) return;
+        let input = control.querySelector("input");
+        if (input) {
+          if (attr.events["pbm_keyup"]) {
+            input.onkeyup = (e) => {
+              const { key, flag } = toPBKeyFlag(e);
+              this.triggerevent("pbm_keyup", key, flag, e);
+            };
+          }
+          if (attr.events["pbm_keydown"]) {
+            input.onkeydown = (e) => {
+              const { key, flag } = toPBKeyFlag(e);
+              this.triggerevent("pbm_keydown", key, flag, e);
+            };
+          }
+        }
+      }
+      let dt = control.querySelector(".cxd-Select");
       if (dt) {
         dt.style.paddingLeft = "4px";
         dt.style.paddingRight = "4px";
@@ -2757,7 +2848,6 @@ var pbother_default = PBUtil;
   }
   class inkpicture extends picture {
   }
-  root.inkpicture = picture;
   class icon extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
@@ -2769,7 +2859,6 @@ var pbother_default = PBUtil;
       return actl;
     }
   }
-  root.icon = icon;
   function addDWProperties(dwCls) {
     const p = dwCls.prototype;
     p.accepttext = function() {
@@ -2955,6 +3044,9 @@ var pbother_default = PBUtil;
     p.print = function() {
       return this._dw.print(...arguments);
     };
+    p.setrowfocusindicator = function() {
+      console.log("h5dw \u4E0D\u652F\u6301setrowfocusindicator");
+    };
   }
   class datastore extends powerobject {
     constructor(ds) {
@@ -2973,6 +3065,12 @@ var pbother_default = PBUtil;
     }
     get object() {
       return this._dw.object;
+    }
+    get data() {
+      return this._dw.data;
+    }
+    set data(value) {
+      this._dw.data = value;
     }
   }
   addDWProperties(datastore);
@@ -3006,7 +3104,8 @@ var pbother_default = PBUtil;
           "toolbarchanged": "onToolbarChanged",
           "editchanged": "onEditChanged",
           "losefocus": "onLoseFocus",
-          "rightbuttonclicked": "onRightButtonClicked"
+          "rightbuttonclicked": "onRightButtonClicked",
+          "rbuttondown": "onRightButtonClicked"
         };
         const dwPBEvent = { "pbm_dwnprocessenter": "onEnter", "pbm_dwnkey": "onKeyDown" };
         for (const key in attr.events) {
@@ -3075,6 +3174,12 @@ var pbother_default = PBUtil;
     }
     set border(value) {
       this._dw.border = value;
+    }
+    get data() {
+      return this._dw.data;
+    }
+    set data(value) {
+      this._dw.data = value;
     }
     // settransobject(db) {
     //   return this._dw.setTransObject();
@@ -3185,7 +3290,6 @@ var pbother_default = PBUtil;
       super(ds);
     }
   }
-  root.datawindowchild = datawindowchild;
   class timing extends nonvisualobject {
     start(interval) {
       this.stop();
@@ -3200,7 +3304,6 @@ var pbother_default = PBUtil;
       this._timer = void 0;
     }
   }
-  root.timing = timing;
   class nav extends windowobject {
     toUI(options) {
       const attr = this._pbprops;
@@ -3350,7 +3453,7 @@ var pbother_default = PBUtil;
   }
   root.powerobject = powerobject;
   root.userobject = userobject;
-  root.pbwindow = pbwindow;
+  root.pbwindow = pbwindow2;
   root.windowobject = windowobject;
   root.statictext = statictext;
   root.singlelineedit = singlelineedit;
@@ -3365,7 +3468,11 @@ var pbother_default = PBUtil;
   root.picture = picture;
   root.hprogressbar = hprogressbar;
   root.datawindow = datawindow;
+  root.datawindowchild = datawindowchild;
   root.datastore = datastore;
   root.treeview = treeview;
   root.nav = nav;
+  root.inkpicture = picture;
+  root.icon = icon;
+  root.timing = timing;
 })(typeof window !== "undefined" ? window : null);

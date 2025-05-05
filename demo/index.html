@@ -16,6 +16,7 @@
   <script src="./satrda.config.js"></script>
   <script src="./common/amisutils.js"></script>
   <script src="./common/pbvm.js"></script>
+  <script src="./common/crypto-js.min.js"></script>
   <script src="./page/other.js"></script>
 
 </head>
@@ -26,8 +27,17 @@
       import './page/index.js';
 
       const root = document.getElementById('root');
-      let w = new w_test_amis();
-	  w.show(root);
+      let w;
+	    
+      // 判断是否有参数
+      const urlParams = new URLSearchParams(window.location.search);
+      const winname = urlParams.get('w'); // 获取参数 w 的值
+      if (winname && window[winname]) {
+        w = new window[winname]()
+      } else {
+        w = new w_test_amis();
+      }
+      w.show(root);
   </script>
 
   <script>

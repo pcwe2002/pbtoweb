@@ -1175,6 +1175,12 @@ form fieldset select {
 .satreport-filter-item:hover {
   background-color: #f5f5f5;
 }
+.satreport-html-cell {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .bl-input {
   position: relative;

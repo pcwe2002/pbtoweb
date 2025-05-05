@@ -48,7 +48,43 @@ npm uninstall pbtoweb -g
 安装
 ```shell
 npm i pbtoweb -g
-```   
+```
+安装完成后有 `集成到PB开发工具` 和 `导出代码转换` 两种使用方式
+
+### 集成到PB开发工具
+集成到PB开发工具，可以通过PB工具栏一键进行转换当前项目。
+#### 配置PB工具栏
+1. 打开PB， 右键点击工具栏，在弹出菜单中选择`customize...`，弹出customize对话框
+2. 选中customize对话框的custom单选框,然后选中一个图标并拖动图标到下面的`current toolbar`中
+3. 双击该图标，在弹出框中`command line` 输入 `cmd /c pbtoweb run`,然后点击`ok`
+该命令会执行pbtoweb的run命令，并查找当前目录下面名称为`pbtoweb.json`的配置文件。
+
+#### 配置文件
+在PB工程目录下面新建一个配置文件pbtoweb.json，内容如下：
+```json
+{
+	"pbtPath": "./webtest.pbt",
+	"serverPath": "D:/SatRDA_V20240605/server/public/webtest",
+	"datawindowPath":"D:/SatRDA_V20240605/server/plugins/data",
+	"openWindow": "w_main",
+	"openURL1": "chrome --incognito \"http://127.0.0.1:5555/webtest\"",
+	"openURL": "http://127.0.0.1:5555/webtest",
+  "exclude": [
+    "n_satapi"
+	]
+}
+```
+|属性|说明|
+|----|----|
+pbtPath|pbt文件路径，将导出并转换该pbt文件中包括的pbl对象|
+serverPath|转换后的文件输出到服务器位置，一般为下载的satrda的server/public/自定义目录|
+datawindowPath|数据窗口目录，一般为下载的satrda的server/plugins/data|
+openWindow|打开的主窗口|
+openURL|转换完成后，打开的浏览器地址。如果要快速加载，可以用http://127.0.0.1:5555/webtest,但是浏览器可能有缓存不能看到数据窗口实时刷新，如果需要实时刷新，可以配置为 `chrome --incognito \"http://127.0.0.1:5555/webtest\"`表示无痕迹模式|
+exclude|不需要转换的文件列表，如：["n_satapi"]，如果某个文件要使用自己修改的js文件，如文件调用了外部dll，可以配置exclude排除该文件。如果第一次生成时，需要把修改的文件放到服务器上，可以将自己修改的文件可以放在 `工程目录/pbtowebtemp/server/对象所在pbl同名文件夹`中|
+
+配置完成后，直接点击工具栏上的前面定义的图标就能看到浏览器打开指定的窗口。建议可以先用自己建立一个小的工程进行尝试。
+
 ### 导出pb代码
 导出pb代码，包括窗口和继承的对象到一个目录（如示例中的pbocde目录中）,也可以使用tool/pbldump 工具导出整个pbl到指定文件夹中，推荐每个pbl导出到单独的文件夹中, 方便转换后对象与pbl对应上
 
